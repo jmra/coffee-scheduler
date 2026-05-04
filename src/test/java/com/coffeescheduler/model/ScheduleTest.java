@@ -311,6 +311,36 @@ class ScheduleTest {
         assertEquals(newStart, s.startMonday());
     }
 
+    @Test
+    void replaceClinicianMigratesData() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.setState(ADAMS, 1, WeekState.ON);
+        s.pin(ADAMS, 1);
+        s.setMarker(ADAMS, 2, WeekMarker.PREFER_ON);
+
+        Clinician updated = new Clinician("Dr. Adams",
+                new ContractedWeeks(10, 12), 5, 1, new BlockLengthRange(3, 4));
+        s.replaceClinician(ADAMS, updated);
+
+        assertEquals(updated, s.roster().get(0));
+        assertEquals(WeekState.ON, s.stateOf(updated, 1));
+        assertTrue(s.isPinned(updated, 1));
+        assertTrue(s.hasMarker(updated, 2, WeekMarker.PREFER_ON));
+        assertEquals(null, s.stateOf(ADAMS, 1));
+    }
+
+    @Test
+    void replaceClinicianPreservesRosterOrder() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        Clinician updated = new Clinician("Dr. Adams Jr.",
+                new ContractedWeeks(20, 24), 6, 2, new BlockLengthRange(4, 5));
+        s.replaceClinician(ADAMS, updated);
+
+        assertEquals(updated, s.roster().get(0));
+        assertEquals(BAKER, s.roster().get(1));
+    }
+
     private static Clinician clinician(String name) {
         return new Clinician(
                 name,

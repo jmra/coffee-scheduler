@@ -1,6 +1,7 @@
 package com.coffeescheduler.ui;
 
 import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.Selection;
 import com.coffeescheduler.model.WeekMarker;
@@ -13,11 +14,14 @@ import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Polygon;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,10 +36,13 @@ public class ScheduleGrid extends ScrollPane {
     private static final double CELL_WIDTH = 90;
     private static final double ROW_HEADER_WIDTH = 140;
 
+    private static final double TRIANGLE_SIZE = 6;
+
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
-    private final Map<Selection.CellRef, Region> cellNodes = new HashMap<>();
+    private final Map<Selection.CellRef, StackPane> cellNodes = new HashMap<>();
     private final Runnable onScheduleChanged;
+    private Map<Selection.CellRef, List<RuleViolation>> violationMap = Map.of();
     private Selection.CellRef anchor;
 
     public ScheduleGrid(Schedule schedule, ObjectProperty<Selection> selection, Runnable onScheduleChanged) {
@@ -76,7 +83,7 @@ public class ScheduleGrid extends ScrollPane {
                 Clinician clin = schedule.roster().get(c);
                 boolean pinned = schedule.isPinned(clin, w);
                 boolean hasMarker = !schedule.markersOf(clin, w).isEmpty();
-                Region cell = buildCell(schedule.stateOf(clin, w), pinned, hasMarker);
+                StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, hasMarker);
                 cell.setCursor(Cursor.HAND);
                 Selection.CellRef ref = new Selection.CellRef(clin, week);
                 cell.setOnMousePressed(e -> handleCellPressed(e, ref, grid));
@@ -187,6 +194,7 @@ public class ScheduleGrid extends ScrollPane {
             }
             case O, U, SPACE, DELETE, BACK_SPACE -> {
                 if (selection.get() instanceof Selection.OfCells sel) {
+                    clearViolations();
                     WeekState newState = switch (e.getCode()) {
                         case O -> WeekState.ON;
                         case U -> WeekState.UNAVAILABLE;
@@ -209,10 +217,28 @@ public class ScheduleGrid extends ScrollPane {
         }
     }
 
+    public void setViolations(Map<Selection.CellRef, List<RuleViolation>> violations) {
+        Map<Selection.CellRef, List<RuleViolation>> old = this.violationMap;
+        this.violationMap = violations;
+        for (Selection.CellRef ref : old.keySet()) {
+            refreshCell(ref);
+        }
+        for (Selection.CellRef ref : violations.keySet()) {
+            refreshCell(ref);
+        }
+    }
+
+    public void clearViolations() {
+        if (!violationMap.isEmpty()) {
+            setViolations(Map.of());
+        }
+    }
+
     private void refreshCell(Selection.CellRef ref) {
-        Region node = cellNodes.get(ref);
+        StackPane node = cellNodes.get(ref);
         if (node != null) {
             node.setStyle(styleFor(ref, selectedCells().contains(ref)));
+            updateTriangle(node, ref);
         }
     }
 
@@ -238,7 +264,7 @@ public class ScheduleGrid extends ScrollPane {
         }
         if (newSel instanceof Selection.OfCells sel) {
             for (Selection.CellRef ref : sel.cells()) {
-                Region node = cellNodes.get(ref);
+                StackPane node = cellNodes.get(ref);
                 if (node != null) {
                     node.setStyle(styleFor(ref, true));
                 }
@@ -247,7 +273,7 @@ public class ScheduleGrid extends ScrollPane {
     }
 
     private void refreshCellUnselected(Selection.CellRef ref) {
-        Region node = cellNodes.get(ref);
+        StackPane node = cellNodes.get(ref);
         if (node != null) {
             node.setStyle(styleFor(ref, false));
         }
@@ -274,11 +300,30 @@ public class ScheduleGrid extends ScrollPane {
                 + " -fx-border-style: " + borderStyle + ";";
     }
 
-    private static Region buildCell(WeekState state, boolean pinned, boolean hasMarker) {
-        Region cell = new Region();
+    private static StackPane buildCell(WeekState state, boolean pinned, boolean hasMarker) {
+        StackPane cell = new StackPane();
         cell.setPrefSize(CELL_WIDTH, CELL_HEIGHT);
+        cell.setMaxSize(CELL_WIDTH, CELL_HEIGHT);
         cell.setStyle(cellStyle(state, false, pinned, hasMarker));
         return cell;
+    }
+
+    private void updateTriangle(StackPane cell, Selection.CellRef ref) {
+        cell.getChildren().removeIf(n -> n instanceof Polygon);
+        Tooltip.uninstall(cell, null);
+        List<RuleViolation> violations = violationMap.get(ref);
+        if (violations != null && !violations.isEmpty()) {
+            Polygon triangle = new Polygon(0, 0, TRIANGLE_SIZE, 0, TRIANGLE_SIZE, TRIANGLE_SIZE);
+            triangle.setFill(Color.web("#d32f2f"));
+            triangle.setMouseTransparent(true);
+            StackPane.setAlignment(triangle, Pos.TOP_RIGHT);
+            cell.getChildren().add(triangle);
+            String tooltipText = violations.stream()
+                    .map(RuleViolation::message)
+                    .reduce((a, b) -> a + "\n" + b)
+                    .orElse("");
+            Tooltip.install(cell, new Tooltip(tooltipText));
+        }
     }
 
     private static Label buildHeader(String text, double width) {

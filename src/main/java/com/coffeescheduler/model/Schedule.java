@@ -94,6 +94,34 @@ public class Schedule {
         roster.add(clinician);
     }
 
+    public void replaceClinician(Clinician old, Clinician replacement) {
+        int idx = roster.indexOf(old);
+        if (idx < 0) {
+            throw new IllegalArgumentException("clinician not in roster: " + old.name());
+        }
+        if (!old.name().equals(replacement.name())) {
+            for (Clinician existing : roster) {
+                if (existing != old && existing.name().equals(replacement.name())) {
+                    throw new IllegalArgumentException("clinician name already in roster: " + replacement.name());
+                }
+            }
+        }
+        roster.set(idx, replacement);
+        migrateKeys(old, replacement);
+    }
+
+    private void migrateKeys(Clinician old, Clinician replacement) {
+        for (int w = 1; w <= lengthWeeks; w++) {
+            Cell oldCell = new Cell(old, w);
+            Cell newCell = new Cell(replacement, w);
+            WeekState s = states.remove(oldCell);
+            if (s != null) states.put(newCell, s);
+            EnumSet<WeekMarker> m = markers.remove(oldCell);
+            if (m != null) markers.put(newCell, m);
+            if (pinnedCells.remove(oldCell)) pinnedCells.add(newCell);
+        }
+    }
+
     public void removeClinician(Clinician clinician) {
         if (!roster.remove(clinician)) {
             throw new IllegalArgumentException("clinician not in roster: " + clinician.name());

@@ -9,12 +9,18 @@ import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
 import javafx.beans.property.ObjectProperty;
 import javafx.geometry.Insets;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class DetailsPanel extends TitledPane {
 
@@ -22,12 +28,15 @@ public class DetailsPanel extends TitledPane {
 
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
+    private final Consumer<Clinician> onClinicianEdited;
     private final VBox body = new VBox(8);
 
-    public DetailsPanel(Schedule schedule, ObjectProperty<Selection> selection) {
+    public DetailsPanel(Schedule schedule, ObjectProperty<Selection> selection,
+                        Consumer<Clinician> onClinicianEdited) {
         super("Details", null);
         this.schedule = schedule;
         this.selection = selection;
+        this.onClinicianEdited = onClinicianEdited;
         body.setPadding(new Insets(8));
         setContent(body);
         setCollapsible(true);
@@ -108,13 +117,58 @@ public class DetailsPanel extends TitledPane {
     private void renderClinician(Clinician clinician) {
         ContractedWeeks cw = clinician.contractedWeeks();
         BlockLengthRange pref = clinician.preferredBlockLength();
-        body.getChildren().addAll(
-                heading("Clinician"),
-                kv("Name", clinician.name()),
-                kv("Contracted weeks", cw.min() == cw.max() ? String.valueOf(cw.min()) : cw.min() + "–" + cw.max()),
-                kv("Max block length", String.valueOf(clinician.maxBlockLength())),
-                kv("Max blocks at max length", String.valueOf(clinician.maxBlocksAtMaxLength())),
-                kv("Preferred block length", pref.min() + "–" + pref.max()));
+
+        TextField nameField = new TextField(clinician.name());
+        Spinner<Integer> contractMin = intSpinner(0, 52, cw.min());
+        Spinner<Integer> contractMax = intSpinner(0, 52, cw.max());
+        Spinner<Integer> maxBlock = intSpinner(2, 26, clinician.maxBlockLength());
+        Spinner<Integer> maxBlocksAtMax = intSpinner(0, 26, clinician.maxBlocksAtMaxLength());
+        Spinner<Integer> prefMin = intSpinner(2, 26, pref.min());
+        Spinner<Integer> prefMax = intSpinner(2, 26, pref.max());
+
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(6);
+        int row = 0;
+        grid.add(new Label("Name:"), 0, row);
+        grid.add(nameField, 1, row++);
+        grid.add(new Label("Contracted min:"), 0, row);
+        grid.add(contractMin, 1, row++);
+        grid.add(new Label("Contracted max:"), 0, row);
+        grid.add(contractMax, 1, row++);
+        grid.add(new Label("Max block length:"), 0, row);
+        grid.add(maxBlock, 1, row++);
+        grid.add(new Label("Max blocks at max:"), 0, row);
+        grid.add(maxBlocksAtMax, 1, row++);
+        grid.add(new Label("Preferred block min:"), 0, row);
+        grid.add(prefMin, 1, row++);
+        grid.add(new Label("Preferred block max:"), 0, row);
+        grid.add(prefMax, 1, row);
+
+        Button apply = new Button("Apply");
+        apply.setOnAction(e -> {
+            String name = nameField.getText().strip();
+            if (name.isBlank()) return;
+            Clinician updated = new Clinician(
+                    name,
+                    new ContractedWeeks(contractMin.getValue(), contractMax.getValue()),
+                    maxBlock.getValue(),
+                    maxBlocksAtMax.getValue(),
+                    new BlockLengthRange(prefMin.getValue(), prefMax.getValue()));
+            schedule.replaceClinician(clinician, updated);
+            selection.set(new Selection.OfClinician(updated));
+            onClinicianEdited.accept(updated);
+        });
+
+        body.getChildren().addAll(heading("Clinician"), grid, apply);
+    }
+
+    private static Spinner<Integer> intSpinner(int min, int max, int initial) {
+        Spinner<Integer> s = new Spinner<>();
+        s.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial));
+        s.setEditable(true);
+        s.setPrefWidth(80);
+        return s;
     }
 
     private static Label heading(String text) {

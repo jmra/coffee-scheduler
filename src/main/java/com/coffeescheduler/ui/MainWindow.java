@@ -9,6 +9,11 @@ import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.Selection;
 import com.coffeescheduler.model.WeekState;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Insets;
@@ -78,6 +83,12 @@ public class MainWindow extends BorderPane {
         selection.set(new Selection.OfClinician(c));
     }
 
+    private void onClinicianEdited(Clinician updated) {
+        rebuildGrid();
+        selection.set(new Selection.OfClinician(updated));
+        setDirty(true);
+    }
+
     private void onScheduleEdited(DetailsPanel details) {
         details.refresh();
         rosterPanel.refresh();
@@ -87,7 +98,7 @@ public class MainWindow extends BorderPane {
     private void rebuildGrid() {
         if (schedule == null) return;
         selection.set(Selection.NONE);
-        detailsPanel = new DetailsPanel(schedule, selection);
+        detailsPanel = new DetailsPanel(schedule, selection, this::onClinicianEdited);
         setCenter(new ScheduleGrid(schedule, selection, () -> onScheduleEdited(detailsPanel)));
         setRight(detailsVisible ? detailsPanel : null);
         statusSummary.setText(ScheduleSummary.format(schedule));
@@ -206,6 +217,9 @@ public class MainWindow extends BorderPane {
             violationsPanel.setManaged(true);
         }
         rebuildGrid();
+        if (getCenter() instanceof ScheduleGrid grid) {
+            grid.setViolations(buildViolationMap(result.violations()));
+        }
         setDirty(true);
     }
 
@@ -379,6 +393,17 @@ public class MainWindow extends BorderPane {
         boolean show = !violationsPanel.isVisible();
         violationsPanel.setVisible(show);
         violationsPanel.setManaged(show);
+    }
+
+    private static Map<Selection.CellRef, List<RuleViolation>> buildViolationMap(List<RuleViolation> violations) {
+        Map<Selection.CellRef, List<RuleViolation>> map = new HashMap<>();
+        for (RuleViolation v : violations) {
+            if (v.clinician() != null && v.week() != null) {
+                Selection.CellRef ref = new Selection.CellRef(v.clinician(), v.week());
+                map.computeIfAbsent(ref, k -> new ArrayList<>()).add(v);
+            }
+        }
+        return map;
     }
 
     private void jumpToViolation(RuleViolation v) {
