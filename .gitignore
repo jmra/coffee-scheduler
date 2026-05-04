@@ -30,3 +30,4 @@ CLAUDE.md
 .idea/
 .devcontainer/
 .claude/
+target/
