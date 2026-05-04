@@ -23,6 +23,25 @@ mvn javafx:run        # launch the app
 mvn test              # run all tests (93 as of 2026-05-03)
 ```
 
+## Packaging a native executable
+
+The `scripts/package.sh` script builds a self-contained native application image using `jlink` + `jpackage`. The output includes a minimal JDK runtime (~61 MB) so end users don't need Java installed.
+
+**Prerequisites:** JDK 25+ with `jlink` and `jpackage` on `PATH`.
+
+```bash
+./scripts/package.sh
+```
+
+This will:
+1. Build the project with Maven (`mvn clean package -DskipTests`)
+2. Create a stripped-down JDK runtime via `jlink` (only the modules the app needs)
+3. Package the app + runtime into a native image via `jpackage`
+
+Output lands in `target/dist/`. On Linux this is an app-image directory; on macOS a `.app` bundle; on Windows a directory (change `TYPE` in the script to `msi` or `exe` for an installer).
+
+**Cross-platform note:** `jpackage` builds for the platform it runs on. To produce a Windows executable, run the script on Windows (Git Bash / MSYS2). To produce a Linux image, run on Linux.
+
 ## Scope
 
 - Schedule granularity: **one week** is the smallest slot. Weeks start on **Monday**.
@@ -65,6 +84,7 @@ src/main/java/com/coffeescheduler/
 │   ├── ScheduleScorer.java         Full-schedule scorer (violations + soft score)
 │   └── TwoPhaseGenerator.java      Composes phase 1 constructive + phase 2 local search
 ├── ui/
+│   ├── Launcher.java           Plain main class for jpackage
 │   ├── App.java                JavaFX Application entry point
 │   ├── MainWindow.java         BorderPane shell, menu wiring, file operations
 │   ├── ScheduleGrid.java       Grid display + cell selection/editing
