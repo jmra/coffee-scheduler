@@ -18,9 +18,11 @@ Created using Claude Code, Opus 4.6
 
 ## Building and running
 
+Requires JDK 25+ and a desktop environment (X11/Wayland on Linux, or native on macOS/Windows).
+
 ```bash
 mvn javafx:run        # launch the app
-mvn test              # run all tests (93 as of 2026-05-03)
+mvn test              # run all tests (95 as of 2026-05-04)
 ```
 
 ## Packaging a native executable

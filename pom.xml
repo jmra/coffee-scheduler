@@ -64,7 +64,10 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.coffeescheduler.ui.App</mainClass>
+                    <mainClass>com.coffeescheduler/com.coffeescheduler.ui.App</mainClass>
+                    <options>
+                        <option>--enable-native-access=javafx.graphics</option>
+                    </options>
                 </configuration>
             </plugin>
             <plugin>
