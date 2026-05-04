@@ -1,0 +1,156 @@
+package com.coffeescheduler.generator;
+
+import com.coffeescheduler.model.BlockLengthRange;
+import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.Schedule;
+import com.coffeescheduler.model.WeekMarker;
+import com.coffeescheduler.model.WeekState;
+import com.coffeescheduler.model.WeeklyDemand;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ScheduleScorerTest {
+
+    private static final LocalDate START = LocalDate.of(2026, 1, 5);
+    private final ScheduleScorer scorer = new ScheduleScorer();
+
+    @Test
+    void cleanScheduleHasNoViolations() {
+        Clinician a = clinician("Dr. A", 2, 4);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().isEmpty(), "violations: " + result.violations());
+    }
+
+    @Test
+    void detectsContractedMinViolation() {
+        Clinician a = clinician("Dr. A", 5, 10);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 0, 1), 2);
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("contracted weeks")));
+    }
+
+    @Test
+    void detectsContractedMaxViolation() {
+        Clinician a = clinician("Dr. A", 1, 2);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        for (int w = 1; w <= 5; w++) s.setState(a, w, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("exceeds contracted max")));
+    }
+
+    @Test
+    void detectsMinBlockLengthViolation() {
+        Clinician a = clinician("Dr. A", 1, 4);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setState(a, 1, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("min is 2")));
+    }
+
+    @Test
+    void detectsMaxBlockLengthViolation() {
+        Clinician a = new Clinician("Dr. A", new ContractedWeeks(1, 10), 3, 5, new BlockLengthRange(2, 3));
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        for (int w = 1; w <= 5; w++) s.setState(a, w, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("max is 3")));
+    }
+
+    @Test
+    void detectsRestViolation() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+        s.setState(a, 4, WeekState.ON);
+        s.setState(a, 5, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("rest gap")));
+    }
+
+    @Test
+    void detectsDemandMinViolation() {
+        Clinician a = clinician("Dr. A", 0, 10);
+        Schedule s = new Schedule(START, 5, List.of(a), new WeeklyDemand(1, 1, 1), 2);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("only 0 on, min is 1")));
+    }
+
+    @Test
+    void preferOnBonusIncreasesSoftScore() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+
+        int baseline = scorer.score(s).softScore();
+
+        s.setMarker(a, 1, WeekMarker.PREFER_ON);
+        int withMarker = scorer.score(s).softScore();
+
+        assertTrue(withMarker > baseline);
+    }
+
+    @Test
+    void preferredBlockLengthBonusIncreasesSoftScore() {
+        Clinician a = new Clinician("Dr. A", new ContractedWeeks(2, 10), 6, 5, new BlockLengthRange(2, 3));
+        Schedule s1 = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s1.setState(a, 1, WeekState.ON);
+        s1.setState(a, 2, WeekState.ON);
+        int scoreInRange = scorer.score(s1).softScore();
+
+        Clinician b = new Clinician("Dr. A", new ContractedWeeks(5, 10), 6, 5, new BlockLengthRange(4, 5));
+        Schedule s2 = new Schedule(START, 10, List.of(b), new WeeklyDemand(0, 1, 1), 2);
+        s2.setState(b, 1, WeekState.ON);
+        s2.setState(b, 2, WeekState.ON);
+        int scoreOutOfRange = scorer.score(s2).softScore();
+
+        assertTrue(scoreInRange > scoreOutOfRange);
+    }
+
+    @Test
+    void totalScoreWeightsViolationsHeavily() {
+        Clinician a = clinician("Dr. A", 10, 10);
+        Schedule s = new Schedule(START, 5, List.of(a), new WeeklyDemand(0, 0, 5), 2);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.totalScore() < 0, "violations should make total score negative");
+    }
+
+    private static Clinician clinician(String name, int contractMin, int contractMax) {
+        return new Clinician(name, new ContractedWeeks(contractMin, contractMax),
+                6, 2, new BlockLengthRange(4, 5));
+    }
+}
