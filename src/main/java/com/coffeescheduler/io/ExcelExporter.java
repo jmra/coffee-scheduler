@@ -41,7 +41,7 @@ public final class ExcelExporter {
 
             for (int w = 1; w <= schedule.lengthWeeks(); w++) {
                 XSSFRow row = sheet.createRow(w);
-                row.createCell(0).setCellValue(WeekHeader.format(w, schedule.startMonday()));
+                row.createCell(0).setCellValue(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks()));
                 row.getCell(0).setCellStyle(headerStyle);
                 for (int c = 0; c < schedule.roster().size(); c++) {
                     Clinician clin = schedule.roster().get(c);

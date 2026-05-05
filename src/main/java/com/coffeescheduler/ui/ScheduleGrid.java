@@ -22,6 +22,8 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,7 +36,7 @@ public class ScheduleGrid extends ScrollPane {
 
     private static final double CELL_HEIGHT = 24;
     private static final double CELL_WIDTH = 90;
-    private static final double ROW_HEADER_WIDTH = 140;
+    private static final double ROW_HEADER_PAD = 24;
 
     private static final double TRIANGLE_SIZE = 6;
 
@@ -49,6 +51,8 @@ public class ScheduleGrid extends ScrollPane {
         this.schedule = schedule;
         this.selection = selection;
         this.onScheduleChanged = onScheduleChanged;
+
+        double rowHeaderWidth = computeRowHeaderWidth(schedule);
 
         GridPane grid = new GridPane();
         grid.setPadding(new Insets(8));
@@ -70,7 +74,7 @@ public class ScheduleGrid extends ScrollPane {
 
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int week = w;
-            Label rowHeader = buildRowHeader(WeekHeader.format(w, schedule.startMonday()));
+            Label rowHeader = buildRowHeader(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks()), rowHeaderWidth);
             rowHeader.setCursor(Cursor.HAND);
             rowHeader.setOnMouseClicked(e -> {
                 anchor = null;
@@ -334,13 +338,25 @@ public class ScheduleGrid extends ScrollPane {
         return header;
     }
 
-    private static Label buildRowHeader(String text) {
+    private static Label buildRowHeader(String text, double width) {
         Label header = new Label(text);
-        header.setPrefSize(ROW_HEADER_WIDTH, CELL_HEIGHT);
+        header.setPrefSize(width, CELL_HEIGHT);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(0, 8, 0, 8));
         header.setStyle("-fx-font-weight: bold; -fx-background-color: #e0e0e0;");
         return header;
+    }
+
+    private static double computeRowHeaderWidth(Schedule schedule) {
+        Text measure = new Text();
+        measure.setFont(Font.font("System", 13));
+        double max = 0;
+        for (int w = 1; w <= schedule.lengthWeeks(); w++) {
+            measure.setText(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks()));
+            double tw = measure.getLayoutBounds().getWidth();
+            if (tw > max) max = tw;
+        }
+        return max + ROW_HEADER_PAD;
     }
 
     private static String colorFor(WeekState state, boolean pinned) {
