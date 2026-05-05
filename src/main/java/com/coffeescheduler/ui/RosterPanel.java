@@ -95,7 +95,7 @@ public class RosterPanel extends TitledPane {
     }
 
     public void refresh() {
-        list.refresh();
+        refreshList();
     }
 
     private void refreshList() {
