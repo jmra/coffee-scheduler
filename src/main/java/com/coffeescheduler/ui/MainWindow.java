@@ -1,6 +1,7 @@
 package com.coffeescheduler.ui;
 
 import com.coffeescheduler.generator.GeneratorResult;
+import com.coffeescheduler.generator.ScheduleScorer;
 import com.coffeescheduler.generator.TwoPhaseGenerator;
 import com.coffeescheduler.io.ExcelExporter;
 import com.coffeescheduler.io.ScheduleJson;
@@ -223,6 +224,20 @@ public class MainWindow extends BorderPane {
         setDirty(true);
     }
 
+    private void checkViolations() {
+        if (schedule == null || schedule.roster().isEmpty()) return;
+        ScheduleScorer.ScoreResult result = new ScheduleScorer().score(schedule);
+        List<RuleViolation> violations = result.violations();
+        int count = violations.size();
+        statusViolations.setText(count == 0 ? "0 violations" : count + " violations ▴");
+        violationsPanel.setViolations(violations);
+        violationsPanel.setVisible(count > 0);
+        violationsPanel.setManaged(count > 0);
+        if (getCenter() instanceof ScheduleGrid grid) {
+            grid.setViolations(buildViolationMap(violations));
+        }
+    }
+
     private void exportExcel() {
         if (schedule == null) return;
         FileChooser chooser = new FileChooser();
@@ -310,7 +325,7 @@ public class MainWindow extends BorderPane {
         MenuItem exportItem = menuItem("Export to Excel…", new KeyCodeCombination(KeyCode.E, KeyCombination.SHORTCUT_DOWN));
         exportItem.setOnAction(e -> exportExcel());
 
-        MenuItem exitItem = menuItem("Exit", null);
+        MenuItem exitItem = menuItem("Exit", new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN));
         exitItem.setOnAction(e -> requestClose());
 
         Menu file = new Menu("File");
@@ -335,6 +350,9 @@ public class MainWindow extends BorderPane {
         MenuItem generateItem = menuItem("Generate", new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN));
         generateItem.setOnAction(e -> generateSchedule());
 
+        MenuItem checkItem = menuItem("Check", new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+        checkItem.setOnAction(e -> checkViolations());
+
         MenuItem clearItem = menuItem("Clear all assignments", null);
         clearItem.setOnAction(e -> clearAllAssignments());
 
@@ -342,6 +360,7 @@ public class MainWindow extends BorderPane {
         schedule.getItems().addAll(
                 settingsItem,
                 generateItem,
+                checkItem,
                 clearItem);
 
         MenuItem toggleViolations = menuItem("Toggle violations panel", null);
@@ -376,7 +395,9 @@ public class MainWindow extends BorderPane {
     private ToolBar buildToolBar() {
         Button genBtn = new Button("Generate");
         genBtn.setOnAction(e -> generateSchedule());
-        return new ToolBar(genBtn);
+        Button checkBtn = new Button("Check");
+        checkBtn.setOnAction(e -> checkViolations());
+        return new ToolBar(genBtn, checkBtn);
     }
 
     private void toggleRosterPanel() {

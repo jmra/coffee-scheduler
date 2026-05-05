@@ -55,7 +55,7 @@ Output lands in `target/dist/`. On Linux this is an app-image directory; on macO
 - Export: `.xlsx` via Apache POI
 
 ### Keyboard shortcuts
-- `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+Shift+S` Save As
+- `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+Shift+S` Save As, `Ctrl+Q` Quit
 - `Ctrl+E` Export to Excel
 - `Ctrl+G` Generate
 - `Ctrl+F` Find clinician
