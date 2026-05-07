@@ -72,6 +72,10 @@ public class MainWindow extends BorderPane {
         selection.set(Selection.NONE);
         rosterPanel.setSchedule(schedule);
         rebuildGrid();
+        statusViolations.setText("0 violations");
+        violationsPanel.setViolations(List.of());
+        violationsPanel.setVisible(false);
+        violationsPanel.setManaged(false);
         setDirty(false);
     }
 
