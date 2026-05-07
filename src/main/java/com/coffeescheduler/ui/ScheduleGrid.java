@@ -47,6 +47,7 @@ public class ScheduleGrid extends ScrollPane {
     private final Set<Integer> blockBoundaries;
     private Map<Selection.CellRef, List<RuleViolation>> violationMap = Map.of();
     private Selection.CellRef anchor;
+    private ContextMenu activeContextMenu;
 
     public ScheduleGrid(Schedule schedule, ObjectProperty<Selection> selection, Runnable onScheduleChanged) {
         this.schedule = schedule;
@@ -104,9 +105,19 @@ public class ScheduleGrid extends ScrollPane {
             }
         }
 
+        addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+            if (e.getButton() != MouseButton.SECONDARY) hideContextMenu();
+        });
         setOnKeyPressed(this::handleKey);
         selection.addListener((obs, oldSel, newSel) -> updateHighlight(oldSel, newSel));
         setContent(grid);
+    }
+
+    private void hideContextMenu() {
+        if (activeContextMenu != null) {
+            activeContextMenu.hide();
+            activeContextMenu = null;
+        }
     }
 
     private void handleCellPressed(MouseEvent e, Selection.CellRef ref, GridPane grid) {
@@ -173,8 +184,10 @@ public class ScheduleGrid extends ScrollPane {
             onScheduleChanged.run();
         });
 
-        ContextMenu menu = new ContextMenu(preferOn, preferOff);
-        menu.show(grid, e.getScreenX(), e.getScreenY());
+        hideContextMenu();
+        activeContextMenu = new ContextMenu(preferOn, preferOff);
+        activeContextMenu.setAutoHide(true);
+        activeContextMenu.show(grid, e.getScreenX(), e.getScreenY());
     }
 
     private List<Selection.CellRef> buildRange(Selection.CellRef from, Selection.CellRef to) {
