@@ -3,6 +3,7 @@ package com.coffeescheduler.ui;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeeklyDemand;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
@@ -10,10 +11,12 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.stream.Collectors;
 
 public class ScheduleSettingsDialog extends Dialog<Boolean> {
 
@@ -31,6 +34,13 @@ public class ScheduleSettingsDialog extends Dialog<Boolean> {
         });
 
         Spinner<Integer> weeksSpinner = intSpinner(1, 104, schedule.lengthWeeks());
+        String currentBlocks = schedule.scheduleBlockSizes().stream()
+                .map(String::valueOf).collect(Collectors.joining(","));
+        TextField blockSizesField = new TextField(currentBlocks);
+        blockSizesField.setPromptText("e.g. 4,4,4");
+        blockSizesField.setPrefWidth(160);
+        Label blockError = new Label();
+        blockError.setStyle("-fx-text-fill: red; -fx-font-size: 11;");
         Spinner<Integer> demandMin = intSpinner(0, 20, schedule.defaultDemand().min());
         Spinner<Integer> demandIdeal = intSpinner(0, 20, schedule.defaultDemand().ideal());
         Spinner<Integer> demandMax = intSpinner(0, 20, schedule.defaultDemand().max());
@@ -45,6 +55,9 @@ public class ScheduleSettingsDialog extends Dialog<Boolean> {
         grid.add(startDate, 1, row++);
         grid.add(new Label("Weeks:"), 0, row);
         grid.add(weeksSpinner, 1, row++);
+        grid.add(new Label("Schedule blocks:"), 0, row);
+        grid.add(blockSizesField, 1, row++);
+        grid.add(blockError, 1, row++);
         grid.add(new Separator(), 0, row++, 2, 1);
         grid.add(new Label("Demand per week (min):"), 0, row);
         grid.add(demandMin, 1, row++);
@@ -58,6 +71,16 @@ public class ScheduleSettingsDialog extends Dialog<Boolean> {
 
         getDialogPane().setContent(grid);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        Node okButton = getDialogPane().lookupButton(ButtonType.OK);
+
+        Runnable validate = () -> {
+            String err = NewScheduleDialog.validateBlockSizes(blockSizesField.getText(), weeksSpinner.getValue());
+            blockError.setText(err);
+            okButton.setDisable(!err.isEmpty());
+        };
+        blockSizesField.textProperty().addListener((obs, o, n) -> validate.run());
+        weeksSpinner.valueProperty().addListener((obs, o, n) -> validate.run());
+        validate.run();
 
         setResultConverter(button -> {
             if (button == ButtonType.OK) {
@@ -65,6 +88,7 @@ public class ScheduleSettingsDialog extends Dialog<Boolean> {
                 if (monday != null && monday.getDayOfWeek() == DayOfWeek.MONDAY) {
                     schedule.setStartMonday(monday);
                     schedule.setLengthWeeks(weeksSpinner.getValue());
+                    schedule.setScheduleBlockSizes(NewScheduleDialog.parseBlockSizes(blockSizesField.getText()));
                     schedule.setDefaultDemand(new WeeklyDemand(
                             demandMin.getValue(), demandIdeal.getValue(), demandMax.getValue()));
                     schedule.setRestWeeks(restWeeks.getValue());

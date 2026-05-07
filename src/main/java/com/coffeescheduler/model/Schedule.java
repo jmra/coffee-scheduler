@@ -18,6 +18,7 @@ public class Schedule {
 
     private LocalDate startMonday;
     private int lengthWeeks;
+    private List<Integer> scheduleBlockSizes;
     private final List<Clinician> roster;
     private WeeklyDemand defaultDemand;
     private int restWeeks;
@@ -34,6 +35,7 @@ public class Schedule {
                     WeeklyDemand defaultDemand, int restWeeks) {
         this.startMonday = startMonday;
         this.lengthWeeks = lengthWeeks;
+        this.scheduleBlockSizes = List.of(lengthWeeks);
         this.roster = new ArrayList<>(roster);
         this.defaultDemand = defaultDemand;
         this.restWeeks = restWeeks;
@@ -62,6 +64,23 @@ public class Schedule {
 
     public int minBlockLength() {
         return minBlockLength;
+    }
+
+    public List<Integer> scheduleBlockSizes() {
+        return Collections.unmodifiableList(scheduleBlockSizes);
+    }
+
+    public void setScheduleBlockSizes(List<Integer> sizes) {
+        this.scheduleBlockSizes = new ArrayList<>(sizes);
+    }
+
+    public int scheduleBlockOf(int week) {
+        int cumulative = 0;
+        for (int i = 0; i < scheduleBlockSizes.size(); i++) {
+            cumulative += scheduleBlockSizes.get(i);
+            if (week <= cumulative) return i + 1;
+        }
+        return scheduleBlockSizes.size();
     }
 
     public void setStartMonday(LocalDate startMonday) {

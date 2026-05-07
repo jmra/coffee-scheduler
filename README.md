@@ -22,7 +22,7 @@ Requires JDK 25+ and a desktop environment (X11/Wayland on Linux, or native on m
 
 ```bash
 mvn javafx:run        # launch the app
-mvn test              # run all tests (95 as of 2026-05-04)
+mvn test              # run all tests (101 as of 2026-05-07)
 ```
 
 ## Packaging a native executable

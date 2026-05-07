@@ -1,5 +1,7 @@
 package com.coffeescheduler.ui;
 
+import com.coffeescheduler.model.Schedule;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -12,31 +14,30 @@ public final class WeekHeader {
     private WeekHeader() {}
 
     public static String format(int weekIndex, LocalDate startMonday, int totalWeeks) {
-        int indexLength = 0;
-        int localIndex = weekIndex;
-        while (localIndex > 0)
-        {
-            localIndex /= 10;
-            indexLength++;
-        }
+        return format(weekIndex, startMonday, totalWeeks, 0);
+    }
 
-        int totalLength = 0;
-        int localTotal = totalWeeks;
-        while (localTotal > 0)
-        {
-            localTotal /= 10;
-            totalLength++;
-        }
-
-        String spacer = "";
-        int spacerLength = totalLength - indexLength;
-        if (spacerLength > 0)
-        {
-            char[] arr = new char[spacerLength];
-            Arrays.fill(arr, ' ');
-            spacer = new String(arr);
-        }
+    public static String format(int weekIndex, LocalDate startMonday, int totalWeeks, int scheduleBlock) {
+        String prefix = scheduleBlock > 0 ? "B" + scheduleBlock + " " : "";
+        String weekNum = "W" + weekIndex + pad(weekIndex, totalWeeks);
         LocalDate weekDate = startMonday.plusWeeks(weekIndex - 1);
-        return "W" + weekIndex + spacer + " — " + DATE.format(weekDate);
+        return prefix + weekNum + " — " + DATE.format(weekDate);
+    }
+
+    private static String pad(int index, int total) {
+        int indexLen = digitCount(index);
+        int totalLen = digitCount(total);
+        int spacerLen = totalLen - indexLen;
+        if (spacerLen <= 0) return "";
+        char[] arr = new char[spacerLen];
+        Arrays.fill(arr, ' ');
+        return new String(arr);
+    }
+
+    private static int digitCount(int n) {
+        if (n <= 0) return 1;
+        int count = 0;
+        while (n > 0) { n /= 10; count++; }
+        return count;
     }
 }

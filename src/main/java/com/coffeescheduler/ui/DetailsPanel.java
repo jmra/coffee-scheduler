@@ -89,7 +89,7 @@ public class DetailsPanel extends TitledPane {
         body.getChildren().addAll(
                 heading("Cell"),
                 kv("Clinician", clinician.name()),
-                kv("Week", WeekHeader.format(week, schedule.startMonday())),
+                kv("Week", WeekHeader.format(week, schedule.startMonday(), schedule.lengthWeeks(), schedule.scheduleBlockOf(week))),
                 kv("Date", schedule.startMonday().plusWeeks(week - 1).format(DATE)),
                 kv("State", state == null ? "off" : state.name().toLowerCase()),
                 kv("Markers", markers.isEmpty() ? "—" : markers.toString()));

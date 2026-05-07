@@ -44,6 +44,7 @@ public class ScheduleGrid extends ScrollPane {
     private final ObjectProperty<Selection> selection;
     private final Map<Selection.CellRef, StackPane> cellNodes = new HashMap<>();
     private final Runnable onScheduleChanged;
+    private final Set<Integer> blockBoundaries;
     private Map<Selection.CellRef, List<RuleViolation>> violationMap = Map.of();
     private Selection.CellRef anchor;
 
@@ -72,9 +73,14 @@ public class ScheduleGrid extends ScrollPane {
             grid.add(header, c + 1, 0);
         }
 
+        this.blockBoundaries = buildBlockBoundaries(schedule);
+
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int week = w;
-            Label rowHeader = buildRowHeader(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks()), rowHeaderWidth);
+            int block = schedule.scheduleBlockOf(w);
+            boolean lastInBlock = blockBoundaries.contains(w);
+            String headerText = WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks(), block);
+            Label rowHeader = buildRowHeader(headerText, rowHeaderWidth, block, lastInBlock);
             rowHeader.setCursor(Cursor.HAND);
             rowHeader.setOnMouseClicked(e -> {
                 anchor = null;
@@ -87,7 +93,7 @@ public class ScheduleGrid extends ScrollPane {
                 Clinician clin = schedule.roster().get(c);
                 boolean pinned = schedule.isPinned(clin, w);
                 boolean hasMarker = !schedule.markersOf(clin, w).isEmpty();
-                StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, hasMarker);
+                StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, hasMarker, lastInBlock);
                 cell.setCursor(Cursor.HAND);
                 Selection.CellRef ref = new Selection.CellRef(clin, week);
                 cell.setOnMousePressed(e -> handleCellPressed(e, ref, grid));
@@ -250,7 +256,8 @@ public class ScheduleGrid extends ScrollPane {
         WeekState state = schedule.stateOf(ref.clinician(), ref.week());
         boolean pinned = schedule.isPinned(ref.clinician(), ref.week());
         boolean hasMarker = !schedule.markersOf(ref.clinician(), ref.week()).isEmpty();
-        return cellStyle(state, selected, pinned, hasMarker);
+        boolean lastInBlock = blockBoundaries.contains(ref.week());
+        return cellStyle(state, selected, pinned, hasMarker, lastInBlock);
     }
 
     private Set<Selection.CellRef> selectedCells() {
@@ -283,7 +290,8 @@ public class ScheduleGrid extends ScrollPane {
         }
     }
 
-    private static String cellStyle(WeekState state, boolean selected, boolean pinned, boolean hasMarker) {
+    private static String cellStyle(WeekState state, boolean selected, boolean pinned,
+                                     boolean hasMarker, boolean lastInBlock) {
         String border;
         String borderWidth;
         String borderStyle = "solid";
@@ -298,17 +306,21 @@ public class ScheduleGrid extends ScrollPane {
             border = "#d0d0d0";
             borderWidth = "0.5";
         }
+        if (lastInBlock && !selected) {
+            borderWidth = "0.5 0.5 3 0.5";
+            border = border + " " + border + " #616161 " + border;
+        }
         return "-fx-background-color: " + colorFor(state, pinned) + ";"
                 + " -fx-border-color: " + border + ";"
                 + " -fx-border-width: " + borderWidth + ";"
                 + " -fx-border-style: " + borderStyle + ";";
     }
 
-    private static StackPane buildCell(WeekState state, boolean pinned, boolean hasMarker) {
+    private static StackPane buildCell(WeekState state, boolean pinned, boolean hasMarker, boolean lastInBlock) {
         StackPane cell = new StackPane();
         cell.setPrefSize(CELL_WIDTH, CELL_HEIGHT);
         cell.setMaxSize(CELL_WIDTH, CELL_HEIGHT);
-        cell.setStyle(cellStyle(state, false, pinned, hasMarker));
+        cell.setStyle(cellStyle(state, false, pinned, hasMarker, lastInBlock));
         return cell;
     }
 
@@ -338,25 +350,43 @@ public class ScheduleGrid extends ScrollPane {
         return header;
     }
 
-    private static Label buildRowHeader(String text, double width) {
+    private static Label buildRowHeader(String text, double width, int block, boolean lastInBlock) {
         Label header = new Label(text);
         header.setPrefSize(width, CELL_HEIGHT);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(0, 8, 0, 8));
-        header.setStyle("-fx-font-weight: bold; -fx-background-color: #e0e0e0;");
+        String bg = (block % 2 == 0) ? "#d4d4d4" : "#e0e0e0";
+        String bottomBorder = lastInBlock ? "3" : "0.5";
+        String borderColor = lastInBlock ? "#e0e0e0 #e0e0e0 #616161 #e0e0e0" : "#e0e0e0";
+        header.setStyle("-fx-font-weight: bold; -fx-background-color: " + bg + ";"
+                + " -fx-border-color: " + borderColor + ";"
+                + " -fx-border-width: 0.5 0.5 " + bottomBorder + " 0.5;");
         return header;
     }
 
     private static double computeRowHeaderWidth(Schedule schedule) {
         Text measure = new Text();
         measure.setFont(Font.font("System", 13));
+        int totalBlocks = schedule.scheduleBlockSizes().size();
         double max = 0;
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
-            measure.setText(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks()));
+            int block = schedule.scheduleBlockOf(w);
+            measure.setText(WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks(), block));
             double tw = measure.getLayoutBounds().getWidth();
             if (tw > max) max = tw;
         }
         return max + ROW_HEADER_PAD;
+    }
+
+    private static Set<Integer> buildBlockBoundaries(Schedule schedule) {
+        Set<Integer> boundaries = new HashSet<>();
+        int cumulative = 0;
+        List<Integer> sizes = schedule.scheduleBlockSizes();
+        for (int i = 0; i < sizes.size() - 1; i++) {
+            cumulative += sizes.get(i);
+            boundaries.add(cumulative);
+        }
+        return boundaries;
     }
 
     private static String colorFor(WeekState state, boolean pinned) {

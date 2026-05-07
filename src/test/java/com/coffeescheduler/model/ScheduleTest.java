@@ -348,4 +348,31 @@ class ScheduleTest {
                 6, 2,
                 new BlockLengthRange(4, 5));
     }
+
+    @Test
+    void defaultScheduleBlockSizesMatchesLength() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS));
+        assertEquals(List.of(10), s.scheduleBlockSizes());
+    }
+
+    @Test
+    void scheduleBlockOfReturnsCorrectBlock() {
+        Schedule s = new Schedule(START, 8, List.of(ADAMS));
+        s.setScheduleBlockSizes(List.of(2, 3, 3));
+        assertEquals(1, s.scheduleBlockOf(1));
+        assertEquals(1, s.scheduleBlockOf(2));
+        assertEquals(2, s.scheduleBlockOf(3));
+        assertEquals(2, s.scheduleBlockOf(5));
+        assertEquals(3, s.scheduleBlockOf(6));
+        assertEquals(3, s.scheduleBlockOf(8));
+    }
+
+    @Test
+    void scheduleBlockSizesRoundTripThroughJson() {
+        Schedule s = new Schedule(START, 8, List.of(ADAMS));
+        s.setScheduleBlockSizes(List.of(2, 3, 3));
+        String json = com.coffeescheduler.io.ScheduleJson.toJson(s);
+        Schedule loaded = com.coffeescheduler.io.ScheduleJson.fromJson(json);
+        assertEquals(List.of(2, 3, 3), loaded.scheduleBlockSizes());
+    }
 }

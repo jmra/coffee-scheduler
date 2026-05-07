@@ -46,6 +46,7 @@ public final class ScheduleJson {
         ScheduleDocument doc = new ScheduleDocument(
                 schedule.startMonday(),
                 schedule.lengthWeeks(),
+                schedule.scheduleBlockSizes(),
                 schedule.defaultDemand(),
                 schedule.restWeeks(),
                 schedule.roster(),
@@ -65,6 +66,9 @@ public final class ScheduleJson {
             WeeklyDemand demand = doc.defaultDemand() != null ? doc.defaultDemand() : new WeeklyDemand(2, 3, 5);
             int rest = doc.restWeeks() > 0 ? doc.restWeeks() : 2;
             Schedule schedule = new Schedule(doc.startMonday(), doc.lengthWeeks(), doc.roster(), demand, rest);
+            if (doc.scheduleBlockSizes() != null && !doc.scheduleBlockSizes().isEmpty()) {
+                schedule.setScheduleBlockSizes(doc.scheduleBlockSizes());
+            }
             Map<String, Clinician> byName = new HashMap<>();
             for (Clinician c : doc.roster()) {
                 byName.put(c.name(), c);
@@ -102,6 +106,7 @@ public final class ScheduleJson {
     private record ScheduleDocument(
             LocalDate startMonday,
             int lengthWeeks,
+            List<Integer> scheduleBlockSizes,
             WeeklyDemand defaultDemand,
             int restWeeks,
             List<Clinician> roster,
