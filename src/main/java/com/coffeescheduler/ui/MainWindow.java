@@ -50,6 +50,8 @@ public class MainWindow extends BorderPane {
     private final Label statusSummary = new Label("");
     private final Label statusViolations = new Label("0 violations");
     private final RosterPanel rosterPanel = new RosterPanel(this::onRosterChanged, this::onClinicianSelected);
+    private final RulesPanel rulesPanel = new RulesPanel(this::onRulesChanged);
+    private final VBox leftPane = new VBox(rosterPanel, rulesPanel);
     private final ViolationsPanel violationsPanel = new ViolationsPanel(this::jumpToViolation);
     private DetailsPanel detailsPanel;
     private Schedule schedule;
@@ -60,7 +62,8 @@ public class MainWindow extends BorderPane {
 
     public MainWindow() {
         setTop(buildTopBar());
-        setLeft(rosterPanel);
+        VBox.setVgrow(rosterPanel, Priority.ALWAYS);
+        setLeft(leftPane);
         violationsPanel.setVisible(false);
         violationsPanel.setManaged(false);
         setBottom(new VBox(violationsPanel, buildStatusBar()));
@@ -71,6 +74,7 @@ public class MainWindow extends BorderPane {
         this.schedule = newSchedule;
         selection.set(Selection.NONE);
         rosterPanel.setSchedule(schedule);
+        rulesPanel.setSchedule(schedule);
         rebuildGrid();
         statusViolations.setText("0 violations");
         violationsPanel.setViolations(List.of());
@@ -80,7 +84,12 @@ public class MainWindow extends BorderPane {
     }
 
     private void onRosterChanged() {
+        rulesPanel.refresh();
         rebuildGrid();
+        setDirty(true);
+    }
+
+    private void onRulesChanged() {
         setDirty(true);
     }
 
@@ -406,7 +415,7 @@ public class MainWindow extends BorderPane {
 
     private void toggleRosterPanel() {
         rosterVisible = !rosterVisible;
-        setLeft(rosterVisible ? rosterPanel : null);
+        setLeft(rosterVisible ? leftPane : null);
     }
 
     private void toggleDetailsPanel() {

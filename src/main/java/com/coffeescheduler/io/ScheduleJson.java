@@ -1,6 +1,7 @@
 package com.coffeescheduler.io;
 
 import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -43,6 +44,12 @@ public final class ScheduleJson {
                 }
             }
         }
+        List<ExclusionGroupEntry> exclusionGroupEntries = new ArrayList<>();
+        for (ExclusionGroup g : schedule.exclusionGroups()) {
+            exclusionGroupEntries.add(new ExclusionGroupEntry(g.name(), List.copyOf(g.members())));
+        }
+        RulesBlock rules = new RulesBlock(exclusionGroupEntries);
+
         ScheduleDocument doc = new ScheduleDocument(
                 schedule.startMonday(),
                 schedule.lengthWeeks(),
@@ -52,7 +59,8 @@ public final class ScheduleJson {
                 schedule.roster(),
                 assignments,
                 markers,
-                pins);
+                pins,
+                rules);
         try {
             return MAPPER.writeValueAsString(doc);
         } catch (JsonProcessingException e) {
@@ -89,6 +97,12 @@ public final class ScheduleJson {
                     schedule.pin(c, entry.week());
                 }
             }
+            if (doc.rules() != null && doc.rules().exclusionGroups() != null) {
+                for (ExclusionGroupEntry entry : doc.rules().exclusionGroups()) {
+                    schedule.addExclusionGroup(
+                            new ExclusionGroup(entry.name(), Set.copyOf(entry.members())));
+                }
+            }
             return schedule;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Failed to parse schedule JSON", e);
@@ -112,7 +126,12 @@ public final class ScheduleJson {
             List<Clinician> roster,
             List<AssignmentEntry> assignments,
             List<MarkerEntry> markers,
-            List<PinEntry> pins) {}
+            List<PinEntry> pins,
+            RulesBlock rules) {}
+
+    private record RulesBlock(List<ExclusionGroupEntry> exclusionGroups) {}
+
+    private record ExclusionGroupEntry(String name, List<String> members) {}
 
     private record AssignmentEntry(String clinician, int week, WeekState state) {}
 

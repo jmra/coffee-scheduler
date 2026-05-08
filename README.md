@@ -22,7 +22,7 @@ Requires JDK 25+ and a desktop environment (X11/Wayland on Linux, or native on m
 
 ```bash
 mvn javafx:run        # launch the app
-mvn test              # run all tests (101 as of 2026-05-07)
+mvn test              # run all tests (133 as of 2026-05-08)
 ```
 
 ## Packaging a native executable
@@ -72,6 +72,7 @@ src/main/java/com/coffeescheduler/
 │   ├── BlockLengthRange.java   Record: preferred block min/max
 │   ├── Clinician.java          Record: name, contracted weeks, block config
 │   ├── ContractedWeeks.java    Record: contracted weeks min/max
+│   ├── ExclusionGroup.java     Record: named group of mutually-exclusive clinicians
 │   ├── RuleViolation.java      Record: (message, clinician?, week?)
 │   ├── Schedule.java           Core model: weeks × clinicians grid + settings
 │   ├── Selection.java          Sealed interface: None/OfCells/OfWeek/OfClinician
@@ -92,6 +93,8 @@ src/main/java/com/coffeescheduler/
 │   ├── ScheduleGrid.java       Grid display + cell selection/editing
 │   ├── DetailsPanel.java       Context-sensitive right panel (4 modes)
 │   ├── RosterPanel.java        Left panel: clinician list + add/remove
+│   ├── RulesPanel.java         Left panel: collapsible rules list (exclusion groups)
+│   ├── ExclusionGroupDialog.java  Modal: add/edit exclusion group
 │   ├── NewScheduleDialog.java  Modal: create schedule with settings
 │   ├── ScheduleSettingsDialog.java  Modal: edit schedule settings
 │   ├── AddClinicianDialog.java Modal: add clinician with full config

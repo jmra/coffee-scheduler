@@ -3,6 +3,7 @@ package com.coffeescheduler.io;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -94,6 +95,58 @@ class ScheduleJsonTest {
                 """;
 
         assertThrows(IllegalArgumentException.class, () -> ScheduleJson.fromJson(json));
+    }
+
+    @Test
+    void roundTripsExclusionGroups() {
+        Schedule original = new Schedule(START, 52, List.of(ADAMS, BAKER));
+        original.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(1, restored.exclusionGroups().size());
+        assertEquals("Group 1", restored.exclusionGroups().get(0).name());
+        assertEquals(Set.of("Dr. Adams", "Dr. Baker"), restored.exclusionGroups().get(0).members());
+    }
+
+    @Test
+    void roundTripsMultipleExclusionGroups() {
+        Clinician charlie = clinician("Dr. Charlie");
+        Schedule original = new Schedule(START, 52, List.of(ADAMS, BAKER, charlie));
+        original.addExclusionGroup(new ExclusionGroup("Group A", Set.of("Dr. Adams", "Dr. Baker")));
+        original.addExclusionGroup(new ExclusionGroup("Group B", Set.of("Dr. Adams", "Dr. Charlie")));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(2, restored.exclusionGroups().size());
+    }
+
+    @Test
+    void loadsOldJsonWithoutRulesField() {
+        String json = """
+                {
+                  "startMonday": "2026-01-05",
+                  "lengthWeeks": 52,
+                  "roster": [],
+                  "assignments": [],
+                  "markers": []
+                }
+                """;
+
+        Schedule restored = ScheduleJson.fromJson(json);
+
+        assertTrue(restored.exclusionGroups().isEmpty());
+    }
+
+    @Test
+    void savedJsonContainsRulesWrapper() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addExclusionGroup(new ExclusionGroup("Test", Set.of("Dr. Adams", "Dr. Baker")));
+
+        String json = ScheduleJson.toJson(s);
+
+        assertTrue(json.contains("\"rules\""), "JSON should contain rules wrapper");
+        assertTrue(json.contains("\"exclusionGroups\""), "JSON should contain exclusionGroups key");
     }
 
     private static Clinician clinician(String name) {

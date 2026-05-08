@@ -1,6 +1,7 @@
 package com.coffeescheduler.generator;
 
 import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
@@ -10,8 +11,10 @@ import com.coffeescheduler.model.WeeklyDemand;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ConstructiveGenerator implements ScheduleGenerator {
 
@@ -57,6 +60,8 @@ public class ConstructiveGenerator implements ScheduleGenerator {
             }
         }
 
+        Set<String> excludedNames = excludedByForcedOn(forcedOn, schedule);
+
         if (forcedOn.size() > demand.max()) {
             violations.add(new RuleViolation(
                     "Week " + week + ": " + forcedOn.size() + " forced on exceeds max " + demand.max(),
@@ -70,7 +75,9 @@ public class ConstructiveGenerator implements ScheduleGenerator {
         int promoted = 0;
         for (Clinician c : optional) {
             if (promoted >= wanted) break;
+            if (excludedNames.contains(c.name())) continue;
             forcedOn.add(c);
+            addExcludedPeers(c, schedule, excludedNames);
             promoted++;
         }
 
@@ -201,6 +208,22 @@ public class ConstructiveGenerator implements ScheduleGenerator {
             }
         }
         return score;
+    }
+
+    private Set<String> excludedByForcedOn(List<Clinician> forcedOn, Schedule schedule) {
+        Set<String> excluded = new HashSet<>();
+        for (Clinician c : forcedOn) {
+            addExcludedPeers(c, schedule, excluded);
+        }
+        return excluded;
+    }
+
+    private void addExcludedPeers(Clinician c, Schedule schedule, Set<String> excluded) {
+        for (ExclusionGroup group : schedule.exclusionGroups()) {
+            if (group.members().contains(c.name())) {
+                excluded.addAll(group.members());
+            }
+        }
     }
 
     private enum Category { FORCED_ON, FORCED_OFF, OPTIONAL }

@@ -8,6 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScheduleTest {
@@ -374,5 +375,118 @@ class ScheduleTest {
         String json = com.coffeescheduler.io.ScheduleJson.toJson(s);
         Schedule loaded = com.coffeescheduler.io.ScheduleJson.fromJson(json);
         assertEquals(List.of(2, 3, 3), loaded.scheduleBlockSizes());
+    }
+
+    // --- Exclusion group management ---
+
+    @Test
+    void newScheduleHasNoExclusionGroups() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertTrue(s.exclusionGroups().isEmpty());
+    }
+
+    @Test
+    void addExclusionGroupAppendsToList() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        ExclusionGroup group = new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker"));
+
+        s.addExclusionGroup(group);
+
+        assertEquals(List.of(group), s.exclusionGroups());
+    }
+
+    @Test
+    void addExclusionGroupRejectsDuplicateName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void removeExclusionGroupByName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+
+        s.removeExclusionGroup("Group 1");
+
+        assertTrue(s.exclusionGroups().isEmpty());
+    }
+
+    @Test
+    void removeExclusionGroupRejectsUnknownName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.removeExclusionGroup("nonexistent"));
+    }
+
+    @Test
+    void removeClinicianAutoRemovesFromExclusionGroup() {
+        Clinician charlie = clinician("Dr. Charlie");
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER, charlie));
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker", "Dr. Charlie")));
+
+        s.removeClinician(charlie);
+
+        assertEquals(1, s.exclusionGroups().size());
+        assertEquals(Set.of("Dr. Adams", "Dr. Baker"), s.exclusionGroups().get(0).members());
+    }
+
+    @Test
+    void removeClinicianDeletesGroupWhenBelowTwoMembers() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+
+        s.removeClinician(BAKER);
+
+        assertTrue(s.exclusionGroups().isEmpty());
+    }
+
+    @Test
+    void exclusionGroupsListIsUnmodifiable() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> s.exclusionGroups().add(new ExclusionGroup("X", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void replaceExclusionGroupByName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        Clinician charlie = clinician("Dr. Charlie");
+        s.addClinician(charlie);
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+
+        ExclusionGroup updated = new ExclusionGroup("Group 1 renamed", Set.of("Dr. Adams", "Dr. Charlie"));
+        s.replaceExclusionGroup("Group 1", updated);
+
+        assertEquals(1, s.exclusionGroups().size());
+        assertEquals("Group 1 renamed", s.exclusionGroups().get(0).name());
+        assertEquals(Set.of("Dr. Adams", "Dr. Charlie"), s.exclusionGroups().get(0).members());
+    }
+
+    @Test
+    void replaceExclusionGroupRejectsUnknownName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceExclusionGroup("nonexistent",
+                        new ExclusionGroup("X", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void replaceExclusionGroupRejectsDuplicateNewName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        Clinician charlie = clinician("Dr. Charlie");
+        s.addClinician(charlie);
+        s.addExclusionGroup(new ExclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+        s.addExclusionGroup(new ExclusionGroup("Group 2", Set.of("Dr. Adams", "Dr. Charlie")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceExclusionGroup("Group 1",
+                        new ExclusionGroup("Group 2", Set.of("Dr. Adams", "Dr. Baker"))));
     }
 }

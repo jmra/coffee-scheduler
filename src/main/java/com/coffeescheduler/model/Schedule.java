@@ -26,6 +26,7 @@ public class Schedule {
     private final Map<Cell, WeekState> states = new HashMap<>();
     private final Map<Cell, EnumSet<WeekMarker>> markers = new HashMap<>();
     private final Set<Cell> pinnedCells = new HashSet<>();
+    private final List<ExclusionGroup> exclusionGroups = new ArrayList<>();
 
     public Schedule(LocalDate startMonday, int lengthWeeks, List<Clinician> roster) {
         this(startMonday, lengthWeeks, roster, new WeeklyDemand(2, 3, 5), DEFAULT_REST_WEEKS);
@@ -148,6 +149,59 @@ public class Schedule {
         states.keySet().removeIf(cell -> cell.clinician().equals(clinician));
         markers.keySet().removeIf(cell -> cell.clinician().equals(clinician));
         pinnedCells.removeIf(cell -> cell.clinician().equals(clinician));
+        pruneExclusionGroups(clinician.name());
+    }
+
+    public List<ExclusionGroup> exclusionGroups() {
+        return Collections.unmodifiableList(exclusionGroups);
+    }
+
+    public void addExclusionGroup(ExclusionGroup group) {
+        for (ExclusionGroup existing : exclusionGroups) {
+            if (existing.name().equals(group.name())) {
+                throw new IllegalArgumentException("exclusion group name already exists: " + group.name());
+            }
+        }
+        exclusionGroups.add(group);
+    }
+
+    public void removeExclusionGroup(String name) {
+        boolean removed = exclusionGroups.removeIf(g -> g.name().equals(name));
+        if (!removed) {
+            throw new IllegalArgumentException("exclusion group not found: " + name);
+        }
+    }
+
+    public void replaceExclusionGroup(String oldName, ExclusionGroup replacement) {
+        int idx = -1;
+        for (int i = 0; i < exclusionGroups.size(); i++) {
+            if (exclusionGroups.get(i).name().equals(oldName)) {
+                idx = i;
+            } else if (exclusionGroups.get(i).name().equals(replacement.name())) {
+                throw new IllegalArgumentException("exclusion group name already exists: " + replacement.name());
+            }
+        }
+        if (idx < 0) {
+            throw new IllegalArgumentException("exclusion group not found: " + oldName);
+        }
+        exclusionGroups.set(idx, replacement);
+    }
+
+    private void pruneExclusionGroups(String clinicianName) {
+        var it = exclusionGroups.iterator();
+        while (it.hasNext()) {
+            ExclusionGroup g = it.next();
+            if (g.members().contains(clinicianName)) {
+                Set<String> remaining = new HashSet<>(g.members());
+                remaining.remove(clinicianName);
+                if (remaining.size() < 2) {
+                    it.remove();
+                } else {
+                    exclusionGroups.set(exclusionGroups.indexOf(g),
+                            new ExclusionGroup(g.name(), remaining));
+                }
+            }
+        }
     }
 
     public void setState(Clinician clinician, int week, WeekState state) {

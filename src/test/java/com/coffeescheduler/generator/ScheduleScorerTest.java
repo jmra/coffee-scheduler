@@ -3,6 +3,7 @@ package com.coffeescheduler.generator;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -147,6 +149,76 @@ class ScheduleScorerTest {
         ScheduleScorer.ScoreResult result = scorer.score(s);
 
         assertTrue(result.totalScore() < 0, "violations should make total score negative");
+    }
+
+    @Test
+    void detectsExclusionGroupViolation() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 2, 2), 2);
+        s.addExclusionGroup(new ExclusionGroup("No overlap", Set.of("Dr. A", "Dr. B")));
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+        s.setState(b, 1, WeekState.ON);
+        s.setState(b, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("No overlap") && v.week() != null));
+    }
+
+    @Test
+    void noExclusionViolationWhenMembersOnDifferentWeeks() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addExclusionGroup(new ExclusionGroup("No overlap", Set.of("Dr. A", "Dr. B")));
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+        s.setState(b, 5, WeekState.ON);
+        s.setState(b, 6, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().noneMatch(v ->
+                v.message().contains("No overlap")));
+    }
+
+    @Test
+    void exclusionViolationIsOnePerGroupPerWeek() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Clinician c = clinician("Dr. C", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b, c), new WeeklyDemand(0, 3, 3), 2);
+        s.addExclusionGroup(new ExclusionGroup("Triple", Set.of("Dr. A", "Dr. B", "Dr. C")));
+        // All three on in weeks 1 and 2
+        for (Clinician cl : List.of(a, b, c)) {
+            s.setState(cl, 1, WeekState.ON);
+            s.setState(cl, 2, WeekState.ON);
+        }
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        long exclusionViolations = result.violations().stream()
+                .filter(v -> v.message().contains("Triple"))
+                .count();
+        assertEquals(2, exclusionViolations, "one violation per week for weeks 1 and 2");
+    }
+
+    @Test
+    void exclusionViolationHasNullClinician() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 2, 2), 2);
+        s.addExclusionGroup(new ExclusionGroup("Group X", Set.of("Dr. A", "Dr. B")));
+        s.setState(a, 3, WeekState.ON);
+        s.setState(b, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("Group X") && v.clinician() == null && v.week() == 3));
     }
 
     private static Clinician clinician(String name, int contractMin, int contractMax) {

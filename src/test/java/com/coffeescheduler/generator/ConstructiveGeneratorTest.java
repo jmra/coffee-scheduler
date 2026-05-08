@@ -4,6 +4,7 @@ import com.coffeescheduler.model.Block;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekState;
 import com.coffeescheduler.model.WeeklyDemand;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -223,6 +225,83 @@ class ConstructiveGeneratorTest {
         assertEquals(WeekState.ON, s.stateOf(b, 1), "pinned ON cell should be preserved");
         assertTrue(s.stateOf(a, 1) != WeekState.ON,
                 "Dr. A should not be on week 1 when Dr. B is pinned (demand max=1)");
+    }
+
+    @Test
+    void exclusionGroupPreventsSimultaneousScheduling() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        Clinician b = clinician("Dr. B", 4, 10);
+        // demand ideal=2 means the generator would normally schedule both A and B together
+        Schedule s = new Schedule(START, 20, List.of(a, b), new WeeklyDemand(1, 2, 2), 2);
+        s.addExclusionGroup(new ExclusionGroup("No overlap", Set.of("Dr. A", "Dr. B")));
+
+        new ConstructiveGenerator().generate(s);
+
+        for (int w = 1; w <= 20; w++) {
+            boolean aOn = s.stateOf(a, w) == WeekState.ON;
+            boolean bOn = s.stateOf(b, w) == WeekState.ON;
+            assertTrue(!(aOn && bOn),
+                    "week " + w + ": both A and B are ON, violating exclusion group");
+        }
+    }
+
+    @Test
+    void exclusionGroupWithThreeMembersAllowsAtMostOne() {
+        Clinician a = clinician("Dr. A", 3, 10);
+        Clinician b = clinician("Dr. B", 3, 10);
+        Clinician c = clinician("Dr. C", 3, 10);
+        // demand ideal=2 would normally schedule two from the group
+        Schedule s = new Schedule(START, 20, List.of(a, b, c), new WeeklyDemand(1, 2, 3), 2);
+        s.addExclusionGroup(new ExclusionGroup("Triple", Set.of("Dr. A", "Dr. B", "Dr. C")));
+
+        new ConstructiveGenerator().generate(s);
+
+        for (int w = 1; w <= 20; w++) {
+            int onCount = 0;
+            if (s.stateOf(a, w) == WeekState.ON) onCount++;
+            if (s.stateOf(b, w) == WeekState.ON) onCount++;
+            if (s.stateOf(c, w) == WeekState.ON) onCount++;
+            assertTrue(onCount <= 1,
+                    "week " + w + ": " + onCount + " exclusion group members on, max is 1");
+        }
+    }
+
+    @Test
+    void exclusionGroupConflictWithForcedOnRecordsViolation() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 2, 2), 2);
+        s.addExclusionGroup(new ExclusionGroup("No overlap", Set.of("Dr. A", "Dr. B")));
+        // Pin both ON for week 1 — both are FORCED_ON, conflict is unavoidable
+        s.setState(a, 1, WeekState.ON);
+        s.setState(b, 1, WeekState.ON);
+
+        GeneratorResult result = new ConstructiveGenerator().generate(s);
+
+        // Both should remain ON (neither is dropped)
+        assertEquals(WeekState.ON, s.stateOf(a, 1));
+        assertEquals(WeekState.ON, s.stateOf(b, 1));
+    }
+
+    @Test
+    void exclusionGroupDoesNotPreventOtherCliniciansFromBeingScheduled() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        Clinician b = clinician("Dr. B", 4, 10);
+        Clinician c = clinician("Dr. C", 4, 10);
+        Schedule s = new Schedule(START, 20, List.of(a, b, c), new WeeklyDemand(2, 2, 3), 2);
+        // A and B can't overlap, but C is not in the group
+        s.addExclusionGroup(new ExclusionGroup("AB only", Set.of("Dr. A", "Dr. B")));
+
+        new ConstructiveGenerator().generate(s);
+
+        // C should be able to be ON at the same time as A or B
+        boolean cOverlapsWithAOrB = false;
+        for (int w = 1; w <= 20; w++) {
+            boolean cOn = s.stateOf(c, w) == WeekState.ON;
+            boolean aOrBOn = s.stateOf(a, w) == WeekState.ON || s.stateOf(b, w) == WeekState.ON;
+            if (cOn && aOrBOn) cOverlapsWithAOrB = true;
+        }
+        assertTrue(cOverlapsWithAOrB, "C should overlap with A or B since C is not in the exclusion group");
     }
 
     private static int countOn(Schedule s, Clinician c) {

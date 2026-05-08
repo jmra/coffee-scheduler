@@ -2,6 +2,7 @@ package com.coffeescheduler.generator;
 
 import com.coffeescheduler.model.Block;
 import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
@@ -36,6 +37,20 @@ public class ScheduleScorer {
                         null, w));
             }
             soft -= Math.abs(onCount - schedule.defaultDemand().ideal());
+
+            Set<Clinician> onSet = schedule.onClinicians(w);
+            for (ExclusionGroup group : schedule.exclusionGroups()) {
+                int membersOn = 0;
+                for (Clinician c : onSet) {
+                    if (group.members().contains(c.name())) membersOn++;
+                }
+                if (membersOn > 1) {
+                    violations.add(new RuleViolation(
+                            "Exclusion group '" + group.name() + "' violated in week " + w
+                                    + ": " + membersOn + " members on",
+                            null, w));
+                }
+            }
         }
 
         for (Clinician c : schedule.roster()) {
