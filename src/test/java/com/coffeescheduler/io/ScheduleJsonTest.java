@@ -4,6 +4,7 @@ import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -147,6 +148,72 @@ class ScheduleJsonTest {
 
         assertTrue(json.contains("\"rules\""), "JSON should contain rules wrapper");
         assertTrue(json.contains("\"exclusionGroups\""), "JSON should contain exclusionGroups key");
+    }
+
+    @Test
+    void roundTripsInclusionGroups() {
+        Schedule original = new Schedule(START, 52, List.of(ADAMS, BAKER));
+        original.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(1, restored.inclusionGroups().size());
+        assertEquals("Coverage", restored.inclusionGroups().get(0).name());
+        assertEquals(Set.of("Dr. Adams", "Dr. Baker"), restored.inclusionGroups().get(0).members());
+    }
+
+    @Test
+    void roundTripsMultipleInclusionGroups() {
+        Clinician charlie = clinician("Dr. Charlie");
+        Schedule original = new Schedule(START, 52, List.of(ADAMS, BAKER, charlie));
+        original.addInclusionGroup(new InclusionGroup("Group A", Set.of("Dr. Adams", "Dr. Baker")));
+        original.addInclusionGroup(new InclusionGroup("Group B", Set.of("Dr. Adams", "Dr. Charlie")));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(2, restored.inclusionGroups().size());
+    }
+
+    @Test
+    void loadsOldJsonWithoutInclusionGroupsField() {
+        String json = """
+                {
+                  "startMonday": "2026-01-05",
+                  "lengthWeeks": 52,
+                  "roster": [],
+                  "assignments": [],
+                  "markers": [],
+                  "rules": { "exclusionGroups": [] }
+                }
+                """;
+
+        Schedule restored = ScheduleJson.fromJson(json);
+
+        assertTrue(restored.inclusionGroups().isEmpty());
+    }
+
+    @Test
+    void savedJsonContainsInclusionGroupsKey() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        String json = ScheduleJson.toJson(s);
+
+        assertTrue(json.contains("\"inclusionGroups\""), "JSON should contain inclusionGroups key");
+    }
+
+    @Test
+    void roundTripsBothGroupTypes() {
+        Schedule original = new Schedule(START, 52, List.of(ADAMS, BAKER));
+        original.addExclusionGroup(new ExclusionGroup("Exc", Set.of("Dr. Adams", "Dr. Baker")));
+        original.addInclusionGroup(new InclusionGroup("Inc", Set.of("Dr. Adams", "Dr. Baker")));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(1, restored.exclusionGroups().size());
+        assertEquals(1, restored.inclusionGroups().size());
+        assertEquals("Exc", restored.exclusionGroups().get(0).name());
+        assertEquals("Inc", restored.inclusionGroups().get(0).name());
     }
 
     private static Clinician clinician(String name) {

@@ -5,6 +5,7 @@ import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekState;
 import com.coffeescheduler.model.WeeklyDemand;
@@ -302,6 +303,126 @@ class ConstructiveGeneratorTest {
             if (cOn && aOrBOn) cOverlapsWithAOrB = true;
         }
         assertTrue(cOverlapsWithAOrB, "C should overlap with A or B since C is not in the exclusion group");
+    }
+
+    // --- Inclusion group tests ---
+
+    @Test
+    void inclusionGroupEnsuresAtLeastOneMemberOnPerWeek() {
+        // High contracted weeks ensure A and B have enough capacity to cover all weeks
+        Clinician a = clinician("Dr. A", 6, 12);
+        Clinician b = clinician("Dr. B", 6, 12);
+        Clinician c = clinician("Dr. C", 2, 10);
+        Schedule s = new Schedule(START, 12, List.of(a, b, c), new WeeklyDemand(1, 1, 3), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+
+        new ConstructiveGenerator().generate(s);
+
+        for (int w = 1; w <= 12; w++) {
+            boolean aOn = s.stateOf(a, w) == WeekState.ON;
+            boolean bOn = s.stateOf(b, w) == WeekState.ON;
+            assertTrue(aOn || bOn,
+                    "week " + w + ": neither A nor B is ON, violating inclusion group");
+        }
+    }
+
+    @Test
+    void inclusionGroupForcePromotesWhenNoMemberNaturallyScheduled() {
+        // demand ideal=1, three clinicians, inclusion group on A+B.
+        // C might be scheduled alone some weeks, but inclusion group should force A or B on too.
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Clinician c = clinician("Dr. C", 2, 10);
+        Schedule s = new Schedule(START, 12, List.of(a, b, c), new WeeklyDemand(1, 1, 3), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+
+        new ConstructiveGenerator().generate(s);
+
+        for (int w = 1; w <= 12; w++) {
+            boolean aOn = s.stateOf(a, w) == WeekState.ON;
+            boolean bOn = s.stateOf(b, w) == WeekState.ON;
+            assertTrue(aOn || bOn,
+                    "week " + w + ": inclusion group not satisfied");
+        }
+    }
+
+    @Test
+    void inclusionGroupDoesNotExceedDemandMax() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Clinician c = clinician("Dr. C", 4, 10);
+        // demand max=1: C will fill it, A and B can't be force-promoted without exceeding max
+        Schedule s = new Schedule(START, 10, List.of(a, b, c), new WeeklyDemand(1, 1, 1), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+
+        GeneratorResult result = new ConstructiveGenerator().generate(s);
+
+        // Should have violations rather than exceeding demand.max
+        for (int w = 1; w <= 10; w++) {
+            int onCount = s.onClinicians(w).size();
+            assertTrue(onCount <= 1, "week " + w + ": " + onCount + " on, exceeds demand max 1");
+        }
+    }
+
+    @Test
+    void inclusionGroupRecordsViolationWhenAllMembersUnavailable() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        // Make both unavailable for week 1
+        s.setState(a, 1, WeekState.UNAVAILABLE);
+        s.setState(b, 1, WeekState.UNAVAILABLE);
+
+        GeneratorResult result = new ConstructiveGenerator().generate(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("Coverage") && v.week() == 1));
+    }
+
+    @Test
+    void inclusionGroupRespectsExclusionGroupPriority() {
+        // A and B in inclusion group, A and C in exclusion group.
+        // Pin C ON for weeks 1-2 so A is excluded → B must be force-promoted.
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Clinician c = clinician("Dr. C", 2, 10);
+        Schedule s = new Schedule(START, 6, List.of(a, b, c), new WeeklyDemand(1, 1, 3), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        s.addExclusionGroup(new ExclusionGroup("No AC", Set.of("Dr. A", "Dr. C")));
+        s.setState(c, 1, WeekState.ON);
+        s.setState(c, 2, WeekState.ON);
+
+        new ConstructiveGenerator().generate(s);
+
+        // Weeks 1-2: C is pinned ON, A is excluded, so B must be ON for inclusion
+        for (int w = 1; w <= 2; w++) {
+            assertTrue(s.stateOf(b, w) == WeekState.ON,
+                    "week " + w + ": C is on, A is excluded, B must be on for inclusion group");
+        }
+    }
+
+    @Test
+    void inclusionGroupViolationWhenExclusionBlocksAllMembers() {
+        // A and B in inclusion group, both in exclusion group with C.
+        // C is pinned ON → A and B both excluded → inclusion violation
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Clinician c = clinician("Dr. C", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b, c), new WeeklyDemand(1, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        s.addExclusionGroup(new ExclusionGroup("No AC", Set.of("Dr. A", "Dr. C")));
+        s.addExclusionGroup(new ExclusionGroup("No BC", Set.of("Dr. B", "Dr. C")));
+        // Pin C on for weeks 1-2 to force the conflict
+        s.setState(c, 1, WeekState.ON);
+        s.setState(c, 2, WeekState.ON);
+
+        GeneratorResult result = new ConstructiveGenerator().generate(s);
+
+        // Weeks 1-2 should have inclusion violations since A and B are both excluded by C
+        assertTrue(result.violations().stream().anyMatch(v ->
+                        v.message().contains("Coverage")),
+                "should record inclusion violation when exclusion blocks all members");
     }
 
     private static int countOn(Schedule s, Clinician c) {

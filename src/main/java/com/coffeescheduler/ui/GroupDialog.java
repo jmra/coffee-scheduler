@@ -1,7 +1,6 @@
 package com.coffeescheduler.ui;
 
 import com.coffeescheduler.model.Clinician;
-import com.coffeescheduler.model.ExclusionGroup;
 import javafx.geometry.Insets;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
@@ -15,23 +14,31 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ExclusionGroupDialog extends Dialog<ExclusionGroup> {
+public class GroupDialog extends Dialog<GroupDialog.Result> {
 
-    public ExclusionGroupDialog(List<Clinician> roster, ExclusionGroup existing) {
-        setTitle(existing == null ? "Add Exclusion Group" : "Edit Exclusion Group");
-        setHeaderText("Select clinicians who cannot work the same week.");
+    public record Result(String name, Set<String> members) {}
+
+    public enum GroupType { EXCLUSION, INCLUSION }
+
+    public GroupDialog(List<Clinician> roster, GroupType type, String existingName, Set<String> existingMembers) {
+        String label = type == GroupType.EXCLUSION ? "Exclusion" : "Inclusion";
+        boolean editing = existingName != null;
+        setTitle(editing ? "Edit " + label + " Group" : "Add " + label + " Group");
+        setHeaderText(type == GroupType.EXCLUSION
+                ? "Select clinicians who cannot work the same week."
+                : "Select clinicians where at least one must work each week.");
 
         TextField nameField = new TextField();
         nameField.setPromptText("Group name");
-        if (existing != null) {
-            nameField.setText(existing.name());
+        if (editing) {
+            nameField.setText(existingName);
         }
 
         List<CheckBox> checkboxes = new ArrayList<>();
         VBox checkboxContainer = new VBox(4);
         for (Clinician c : roster) {
             CheckBox cb = new CheckBox(c.name());
-            if (existing != null && existing.members().contains(c.name())) {
+            if (existingMembers != null && existingMembers.contains(c.name())) {
                 cb.setSelected(true);
             }
             checkboxes.add(cb);
@@ -73,7 +80,7 @@ public class ExclusionGroupDialog extends Dialog<ExclusionGroup> {
                 for (CheckBox cb : checkboxes) {
                     if (cb.isSelected()) selected.add(cb.getText());
                 }
-                return new ExclusionGroup(name, selected);
+                return new Result(name, selected);
             }
             return null;
         });

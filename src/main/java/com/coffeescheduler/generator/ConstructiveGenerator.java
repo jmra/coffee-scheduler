@@ -2,6 +2,7 @@ package com.coffeescheduler.generator;
 
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
@@ -79,6 +80,44 @@ public class ConstructiveGenerator implements ScheduleGenerator {
             forcedOn.add(c);
             addExcludedPeers(c, schedule, excludedNames);
             promoted++;
+        }
+
+        // Post-promotion: enforce inclusion groups.
+        // Exclusion groups typically encode a harder real-world constraint (e.g., two
+        // clinicians literally can't both be present), while inclusion groups express
+        // something more like a coverage preference. When the two conflict, exclusion
+        // wins and an inclusion violation is recorded rather than breaking exclusion.
+        for (InclusionGroup group : schedule.inclusionGroups()) {
+            boolean satisfied = false;
+            for (Clinician c : forcedOn) {
+                if (group.members().contains(c.name())) { satisfied = true; break; }
+            }
+            if (!satisfied) {
+                if (forcedOn.size() >= demand.max()) {
+                    violations.add(new RuleViolation(
+                            "Inclusion group '" + group.name() + "' violated in week " + week
+                                    + ": no members on (demand max reached)",
+                            null, week));
+                    continue;
+                }
+                Clinician best = null;
+                for (Clinician c : optional) {
+                    if (!group.members().contains(c.name())) continue;
+                    if (excludedNames.contains(c.name())) continue;
+                    if (forcedOn.contains(c)) continue;
+                    best = c;
+                    break;
+                }
+                if (best != null) {
+                    forcedOn.add(best);
+                    addExcludedPeers(best, schedule, excludedNames);
+                } else {
+                    violations.add(new RuleViolation(
+                            "Inclusion group '" + group.name() + "' violated in week " + week
+                                    + ": no eligible members available",
+                            null, week));
+                }
+            }
         }
 
         if (forcedOn.size() < demand.min()) {

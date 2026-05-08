@@ -4,6 +4,7 @@ import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -219,6 +220,71 @@ class ScheduleScorerTest {
 
         assertTrue(result.violations().stream().anyMatch(v ->
                 v.message().contains("Group X") && v.clinician() == null && v.week() == 3));
+    }
+
+    @Test
+    void detectsInclusionGroupViolation() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        // Week 1: neither is ON → violation
+        s.setState(a, 3, WeekState.ON);
+        s.setState(a, 4, WeekState.ON);
+        s.setState(b, 7, WeekState.ON);
+        s.setState(b, 8, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("Coverage") && v.week() != null));
+    }
+
+    @Test
+    void noInclusionViolationWhenMemberIsOn() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 4, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        // Every week has at least one member ON
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+        s.setState(b, 3, WeekState.ON);
+        s.setState(b, 4, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().noneMatch(v ->
+                v.message().contains("Coverage")));
+    }
+
+    @Test
+    void inclusionViolationIsOnePerGroupPerWeek() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. A", "Dr. B")));
+        // Neither member ON for any week
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        long inclusionViolations = result.violations().stream()
+                .filter(v -> v.message().contains("Coverage"))
+                .count();
+        assertEquals(10, inclusionViolations, "one violation per week for all 10 weeks");
+    }
+
+    @Test
+    void inclusionViolationHasNullClinician() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        Schedule s = new Schedule(START, 10, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addInclusionGroup(new InclusionGroup("Group Y", Set.of("Dr. A", "Dr. B")));
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("Group Y") && v.clinician() == null && v.week() == 1));
     }
 
     private static Clinician clinician(String name, int contractMin, int contractMax) {

@@ -489,4 +489,148 @@ class ScheduleTest {
                 () -> s.replaceExclusionGroup("Group 1",
                         new ExclusionGroup("Group 2", Set.of("Dr. Adams", "Dr. Baker"))));
     }
+
+    // --- Inclusion group management ---
+
+    @Test
+    void newScheduleHasNoInclusionGroups() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertTrue(s.inclusionGroups().isEmpty());
+    }
+
+    @Test
+    void addInclusionGroupAppendsToList() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        InclusionGroup group = new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker"));
+
+        s.addInclusionGroup(group);
+
+        assertEquals(List.of(group), s.inclusionGroups());
+    }
+
+    @Test
+    void addInclusionGroupRejectsDuplicateName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void addInclusionGroupRejectsNameTakenByExclusionGroup() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addExclusionGroup(new ExclusionGroup("Shared Name", Set.of("Dr. Adams", "Dr. Baker")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addInclusionGroup(new InclusionGroup("Shared Name", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void addExclusionGroupRejectsNameTakenByInclusionGroup() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addInclusionGroup(new InclusionGroup("Shared Name", Set.of("Dr. Adams", "Dr. Baker")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addExclusionGroup(new ExclusionGroup("Shared Name", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void removeInclusionGroupByName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        s.removeInclusionGroup("Coverage");
+
+        assertTrue(s.inclusionGroups().isEmpty());
+    }
+
+    @Test
+    void removeInclusionGroupRejectsUnknownName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.removeInclusionGroup("nonexistent"));
+    }
+
+    @Test
+    void removeClinicianAutoRemovesFromInclusionGroup() {
+        Clinician charlie = clinician("Dr. Charlie");
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER, charlie));
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker", "Dr. Charlie")));
+
+        s.removeClinician(charlie);
+
+        assertEquals(1, s.inclusionGroups().size());
+        assertEquals(Set.of("Dr. Adams", "Dr. Baker"), s.inclusionGroups().get(0).members());
+    }
+
+    @Test
+    void removeClinicianDeletesInclusionGroupWhenBelowTwoMembers() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        s.removeClinician(BAKER);
+
+        assertTrue(s.inclusionGroups().isEmpty());
+    }
+
+    @Test
+    void inclusionGroupsListIsUnmodifiable() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> s.inclusionGroups().add(new InclusionGroup("X", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void replaceInclusionGroupByName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        Clinician charlie = clinician("Dr. Charlie");
+        s.addClinician(charlie);
+        s.addInclusionGroup(new InclusionGroup("Coverage", Set.of("Dr. Adams", "Dr. Baker")));
+
+        InclusionGroup updated = new InclusionGroup("Coverage renamed", Set.of("Dr. Adams", "Dr. Charlie"));
+        s.replaceInclusionGroup("Coverage", updated);
+
+        assertEquals(1, s.inclusionGroups().size());
+        assertEquals("Coverage renamed", s.inclusionGroups().get(0).name());
+        assertEquals(Set.of("Dr. Adams", "Dr. Charlie"), s.inclusionGroups().get(0).members());
+    }
+
+    @Test
+    void replaceInclusionGroupRejectsUnknownName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceInclusionGroup("nonexistent",
+                        new InclusionGroup("X", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void replaceInclusionGroupRejectsDuplicateNewName() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        Clinician charlie = clinician("Dr. Charlie");
+        s.addClinician(charlie);
+        s.addInclusionGroup(new InclusionGroup("Group 1", Set.of("Dr. Adams", "Dr. Baker")));
+        s.addInclusionGroup(new InclusionGroup("Group 2", Set.of("Dr. Adams", "Dr. Charlie")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceInclusionGroup("Group 1",
+                        new InclusionGroup("Group 2", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
+
+    @Test
+    void replaceInclusionGroupRejectsNameTakenByExclusionGroup() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS, BAKER));
+        Clinician charlie = clinician("Dr. Charlie");
+        s.addClinician(charlie);
+        s.addInclusionGroup(new InclusionGroup("Inc Group", Set.of("Dr. Adams", "Dr. Baker")));
+        s.addExclusionGroup(new ExclusionGroup("Exc Group", Set.of("Dr. Adams", "Dr. Charlie")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceInclusionGroup("Inc Group",
+                        new InclusionGroup("Exc Group", Set.of("Dr. Adams", "Dr. Baker"))));
+    }
 }

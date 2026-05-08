@@ -3,6 +3,7 @@ package com.coffeescheduler.generator;
 import com.coffeescheduler.model.Block;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
@@ -48,6 +49,18 @@ public class ScheduleScorer {
                     violations.add(new RuleViolation(
                             "Exclusion group '" + group.name() + "' violated in week " + w
                                     + ": " + membersOn + " members on",
+                            null, w));
+                }
+            }
+            for (InclusionGroup group : schedule.inclusionGroups()) {
+                boolean anyOn = false;
+                for (Clinician c : onSet) {
+                    if (group.members().contains(c.name())) { anyOn = true; break; }
+                }
+                if (!anyOn) {
+                    violations.add(new RuleViolation(
+                            "Inclusion group '" + group.name() + "' violated in week " + w
+                                    + ": no members on",
                             null, w));
                 }
             }

@@ -2,6 +2,7 @@ package com.coffeescheduler.io;
 
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
@@ -44,11 +45,15 @@ public final class ScheduleJson {
                 }
             }
         }
-        List<ExclusionGroupEntry> exclusionGroupEntries = new ArrayList<>();
+        List<GroupEntry> exclusionGroupEntries = new ArrayList<>();
         for (ExclusionGroup g : schedule.exclusionGroups()) {
-            exclusionGroupEntries.add(new ExclusionGroupEntry(g.name(), List.copyOf(g.members())));
+            exclusionGroupEntries.add(new GroupEntry(g.name(), List.copyOf(g.members())));
         }
-        RulesBlock rules = new RulesBlock(exclusionGroupEntries);
+        List<GroupEntry> inclusionGroupEntries = new ArrayList<>();
+        for (InclusionGroup g : schedule.inclusionGroups()) {
+            inclusionGroupEntries.add(new GroupEntry(g.name(), List.copyOf(g.members())));
+        }
+        RulesBlock rules = new RulesBlock(exclusionGroupEntries, inclusionGroupEntries);
 
         ScheduleDocument doc = new ScheduleDocument(
                 schedule.startMonday(),
@@ -97,10 +102,18 @@ public final class ScheduleJson {
                     schedule.pin(c, entry.week());
                 }
             }
-            if (doc.rules() != null && doc.rules().exclusionGroups() != null) {
-                for (ExclusionGroupEntry entry : doc.rules().exclusionGroups()) {
-                    schedule.addExclusionGroup(
-                            new ExclusionGroup(entry.name(), Set.copyOf(entry.members())));
+            if (doc.rules() != null) {
+                if (doc.rules().exclusionGroups() != null) {
+                    for (GroupEntry entry : doc.rules().exclusionGroups()) {
+                        schedule.addExclusionGroup(
+                                new ExclusionGroup(entry.name(), Set.copyOf(entry.members())));
+                    }
+                }
+                if (doc.rules().inclusionGroups() != null) {
+                    for (GroupEntry entry : doc.rules().inclusionGroups()) {
+                        schedule.addInclusionGroup(
+                                new InclusionGroup(entry.name(), Set.copyOf(entry.members())));
+                    }
                 }
             }
             return schedule;
@@ -129,9 +142,9 @@ public final class ScheduleJson {
             List<PinEntry> pins,
             RulesBlock rules) {}
 
-    private record RulesBlock(List<ExclusionGroupEntry> exclusionGroups) {}
+    private record RulesBlock(List<GroupEntry> exclusionGroups, List<GroupEntry> inclusionGroups) {}
 
-    private record ExclusionGroupEntry(String name, List<String> members) {}
+    private record GroupEntry(String name, List<String> members) {}
 
     private record AssignmentEntry(String clinician, int week, WeekState state) {}
 

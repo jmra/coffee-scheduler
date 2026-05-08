@@ -27,6 +27,7 @@ public class Schedule {
     private final Map<Cell, EnumSet<WeekMarker>> markers = new HashMap<>();
     private final Set<Cell> pinnedCells = new HashSet<>();
     private final List<ExclusionGroup> exclusionGroups = new ArrayList<>();
+    private final List<InclusionGroup> inclusionGroups = new ArrayList<>();
 
     public Schedule(LocalDate startMonday, int lengthWeeks, List<Clinician> roster) {
         this(startMonday, lengthWeeks, roster, new WeeklyDemand(2, 3, 5), DEFAULT_REST_WEEKS);
@@ -150,6 +151,7 @@ public class Schedule {
         markers.keySet().removeIf(cell -> cell.clinician().equals(clinician));
         pinnedCells.removeIf(cell -> cell.clinician().equals(clinician));
         pruneExclusionGroups(clinician.name());
+        pruneInclusionGroups(clinician.name());
     }
 
     public List<ExclusionGroup> exclusionGroups() {
@@ -157,11 +159,7 @@ public class Schedule {
     }
 
     public void addExclusionGroup(ExclusionGroup group) {
-        for (ExclusionGroup existing : exclusionGroups) {
-            if (existing.name().equals(group.name())) {
-                throw new IllegalArgumentException("exclusion group name already exists: " + group.name());
-            }
-        }
+        checkGroupNameUnique(group.name());
         exclusionGroups.add(group);
     }
 
@@ -200,6 +198,74 @@ public class Schedule {
                     exclusionGroups.set(exclusionGroups.indexOf(g),
                             new ExclusionGroup(g.name(), remaining));
                 }
+            }
+        }
+    }
+
+    public List<InclusionGroup> inclusionGroups() {
+        return Collections.unmodifiableList(inclusionGroups);
+    }
+
+    public void addInclusionGroup(InclusionGroup group) {
+        checkGroupNameUnique(group.name());
+        inclusionGroups.add(group);
+    }
+
+    public void removeInclusionGroup(String name) {
+        boolean removed = inclusionGroups.removeIf(g -> g.name().equals(name));
+        if (!removed) {
+            throw new IllegalArgumentException("inclusion group not found: " + name);
+        }
+    }
+
+    public void replaceInclusionGroup(String oldName, InclusionGroup replacement) {
+        int idx = -1;
+        for (int i = 0; i < inclusionGroups.size(); i++) {
+            if (inclusionGroups.get(i).name().equals(oldName)) {
+                idx = i;
+            } else if (inclusionGroups.get(i).name().equals(replacement.name())) {
+                throw new IllegalArgumentException("group name already exists: " + replacement.name());
+            }
+        }
+        if (idx < 0) {
+            throw new IllegalArgumentException("inclusion group not found: " + oldName);
+        }
+        if (!oldName.equals(replacement.name())) {
+            for (ExclusionGroup eg : exclusionGroups) {
+                if (eg.name().equals(replacement.name())) {
+                    throw new IllegalArgumentException("group name already exists: " + replacement.name());
+                }
+            }
+        }
+        inclusionGroups.set(idx, replacement);
+    }
+
+    private void pruneInclusionGroups(String clinicianName) {
+        var it = inclusionGroups.iterator();
+        while (it.hasNext()) {
+            InclusionGroup g = it.next();
+            if (g.members().contains(clinicianName)) {
+                Set<String> remaining = new HashSet<>(g.members());
+                remaining.remove(clinicianName);
+                if (remaining.size() < 2) {
+                    it.remove();
+                } else {
+                    inclusionGroups.set(inclusionGroups.indexOf(g),
+                            new InclusionGroup(g.name(), remaining));
+                }
+            }
+        }
+    }
+
+    private void checkGroupNameUnique(String name) {
+        for (ExclusionGroup eg : exclusionGroups) {
+            if (eg.name().equals(name)) {
+                throw new IllegalArgumentException("group name already exists: " + name);
+            }
+        }
+        for (InclusionGroup ig : inclusionGroups) {
+            if (ig.name().equals(name)) {
+                throw new IllegalArgumentException("group name already exists: " + name);
             }
         }
     }
