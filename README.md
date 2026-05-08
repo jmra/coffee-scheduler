@@ -57,7 +57,7 @@ Output lands in `target/dist/`. On Linux this is an app-image directory; on macO
 ### Keyboard shortcuts
 - `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+Shift+S` Save As, `Ctrl+Q` Quit
 - `Ctrl+E` Export to Excel
-- `Ctrl+G` Generate
+- `Ctrl+G` Generate, `Ctrl+Shift+G` Check violations
 - `Ctrl+F` Find clinician
 - `Esc` Clear selection
 - `O` / `U` / `Space` set state on selection
