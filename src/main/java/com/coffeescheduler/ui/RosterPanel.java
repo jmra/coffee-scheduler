@@ -3,7 +3,6 @@ package com.coffeescheduler.ui;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekState;
-import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListCell;
@@ -55,11 +54,11 @@ public class RosterPanel extends TitledPane {
             }
         });
 
-        VBox content = new VBox(8, new HBox(8, addBtn, removeBtn), list);
-        content.setPadding(new Insets(8));
+        VBox content = new VBox(UIConstants.PANEL_SPACING, new HBox(UIConstants.PANEL_SPACING, addBtn, removeBtn), list);
+        content.setPadding(UIConstants.PANEL_INSETS);
         setContent(content);
         setCollapsible(true);
-        setPrefWidth(220);
+        setPrefWidth(UIConstants.ROSTER_PANEL_WIDTH);
     }
 
     public void setSchedule(Schedule schedule) {

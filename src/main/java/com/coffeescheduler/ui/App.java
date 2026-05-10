@@ -8,7 +8,7 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         MainWindow mainWindow = new MainWindow();
-        Scene scene = new Scene(mainWindow, 1200, 800);
+        Scene scene = new Scene(mainWindow, UIConstants.WINDOW_WIDTH, UIConstants.WINDOW_HEIGHT);
         stage.setTitle("Coffee Scheduler");
         stage.setScene(scene);
         stage.setOnCloseRequest(e -> {

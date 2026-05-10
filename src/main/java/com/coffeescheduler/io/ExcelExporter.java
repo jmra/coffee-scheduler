@@ -14,6 +14,8 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import com.coffeescheduler.ui.UIConstants;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -27,9 +29,9 @@ public final class ExcelExporter {
             XSSFSheet sheet = wb.createSheet("Schedule");
 
             XSSFCellStyle headerStyle = headerStyle(wb);
-            XSSFCellStyle onStyle = cellStyle(wb, new byte[]{(byte) 0xa5, (byte) 0xd6, (byte) 0xa7});
-            XSSFCellStyle unavailStyle = cellStyle(wb, new byte[]{(byte) 0xbd, (byte) 0xbd, (byte) 0xbd});
-            XSSFCellStyle offStyle = cellStyle(wb, new byte[]{(byte) 0xff, (byte) 0xff, (byte) 0xff});
+            XSSFCellStyle onStyle = cellStyle(wb, UIConstants.EXCEL_COLOR_ON);
+            XSSFCellStyle unavailStyle = cellStyle(wb, UIConstants.EXCEL_COLOR_UNAVAILABLE);
+            XSSFCellStyle offStyle = cellStyle(wb, UIConstants.EXCEL_COLOR_OFF);
 
             XSSFRow header = sheet.createRow(0);
             header.createCell(0).setCellValue("Week");
@@ -59,9 +61,9 @@ public final class ExcelExporter {
                 }
             }
 
-            sheet.setColumnWidth(0, 5000);
+            sheet.setColumnWidth(0, UIConstants.EXCEL_WEEK_COLUMN_WIDTH);
             for (int c = 0; c < schedule.roster().size(); c++) {
-                sheet.setColumnWidth(c + 1, 3500);
+                sheet.setColumnWidth(c + 1, UIConstants.EXCEL_CLINICIAN_COLUMN_WIDTH);
             }
 
             try (FileOutputStream out = new FileOutputStream(path.toFile())) {
@@ -75,7 +77,7 @@ public final class ExcelExporter {
         XSSFFont font = wb.createFont();
         font.setBold(true);
         style.setFont(font);
-        style.setFillForegroundColor(new XSSFColor(new byte[]{(byte) 0xe0, (byte) 0xe0, (byte) 0xe0}, null));
+        style.setFillForegroundColor(new XSSFColor(UIConstants.EXCEL_COLOR_HEADER, null));
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setAlignment(HorizontalAlignment.CENTER);
         applyBorders(style);

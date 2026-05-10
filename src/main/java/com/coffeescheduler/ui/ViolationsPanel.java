@@ -1,7 +1,6 @@
 package com.coffeescheduler.ui;
 
 import com.coffeescheduler.model.RuleViolation;
-import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -14,7 +13,7 @@ import java.util.function.Consumer;
 
 public class ViolationsPanel extends VBox {
 
-    private final VBox rows = new VBox(2);
+    private final VBox rows = new VBox();
     private final Consumer<RuleViolation> onJump;
 
     public ViolationsPanel(Consumer<RuleViolation> onJump) {
@@ -25,11 +24,11 @@ public class ViolationsPanel extends VBox {
 
         ScrollPane scroll = new ScrollPane(rows);
         scroll.setFitToWidth(true);
-        scroll.setPrefHeight(120);
+        scroll.setPrefHeight(UIConstants.VIOLATIONS_SCROLL_HEIGHT);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
-        setPadding(new Insets(4, 8, 4, 8));
-        setStyle("-fx-border-color: #d0d0d0; -fx-border-width: 1 0 0 0;");
+        setPadding(UIConstants.STATUS_BAR_INSETS);
+        setStyle("-fx-border-color: " + UIConstants.COLOR_BORDER + "; -fx-border-width: 1 0 0 0;");
         getChildren().addAll(title, scroll);
     }
 
@@ -50,12 +49,12 @@ public class ViolationsPanel extends VBox {
         HBox.setHgrow(message, Priority.ALWAYS);
 
         Label jump = new Label("Jump");
-        jump.setStyle("-fx-text-fill: #1976D2; -fx-underline: true;");
+        jump.setStyle("-fx-text-fill: " + UIConstants.COLOR_LINK + "; -fx-underline: true;");
         jump.setCursor(Cursor.HAND);
         jump.setOnMouseClicked(e -> onJump.accept(v));
 
-        HBox row = new HBox(8, message, jump);
-        row.setPadding(new Insets(2, 4, 2, 4));
+        HBox row = new HBox(UIConstants.VIOLATIONS_ROW_SPACING, message, jump);
+        row.setPadding(UIConstants.VIOLATIONS_ROW_INSETS);
         return row;
     }
 }

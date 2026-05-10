@@ -31,9 +31,9 @@ public class AddClinicianDialog extends Dialog<Clinician> {
         Spinner<Integer> prefMax = intSpinner(2, 26, 5);
 
         GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(16));
+        grid.setHgap(UIConstants.DIALOG_HGAP);
+        grid.setVgap(UIConstants.DIALOG_VGAP);
+        grid.setPadding(new Insets(UIConstants.DIALOG_PADDING));
         int row = 0;
         grid.add(new Label("Name:"), 0, row);
         grid.add(nameField, 1, row++);
@@ -70,7 +70,7 @@ public class AddClinicianDialog extends Dialog<Clinician> {
         Spinner<Integer> s = new Spinner<>();
         s.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial));
         s.setEditable(true);
-        s.setPrefWidth(80);
+        s.setPrefWidth(UIConstants.SPINNER_WIDTH);
         return s;
     }
 

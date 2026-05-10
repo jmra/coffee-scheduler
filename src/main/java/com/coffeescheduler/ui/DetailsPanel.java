@@ -26,13 +26,13 @@ import java.util.function.Consumer;
 
 public class DetailsPanel extends TitledPane {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy");
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern(UIConstants.DATE_PATTERN_DETAIL);
 
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
     private final Consumer<Clinician> onClinicianEdited;
     private final Runnable onDemandChanged;
-    private final VBox body = new VBox(8);
+    private final VBox body = new VBox(UIConstants.PANEL_SPACING);
 
     public DetailsPanel(Schedule schedule, ObjectProperty<Selection> selection,
                         Consumer<Clinician> onClinicianEdited, Runnable onDemandChanged) {
@@ -41,10 +41,10 @@ public class DetailsPanel extends TitledPane {
         this.selection = selection;
         this.onClinicianEdited = onClinicianEdited;
         this.onDemandChanged = onDemandChanged;
-        body.setPadding(new Insets(8));
+        body.setPadding(UIConstants.PANEL_INSETS);
         setContent(body);
         setCollapsible(true);
-        setPrefWidth(280);
+        setPrefWidth(UIConstants.DETAILS_PANEL_WIDTH);
         selection.addListener((obs, oldSel, newSel) -> render(newSel));
         render(selection.get());
     }
@@ -148,8 +148,8 @@ public class DetailsPanel extends TitledPane {
         errorLabel.setWrapText(true);
 
         GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(6);
+        grid.setHgap(UIConstants.DETAIL_GRID_HGAP);
+        grid.setVgap(UIConstants.DETAIL_GRID_VGAP);
         int row = 0;
         grid.add(new Label("Start week:"), 0, row);
         grid.add(startSpin, 1, row++);
@@ -238,8 +238,8 @@ public class DetailsPanel extends TitledPane {
         Spinner<Integer> prefMax = intSpinner(2, 26, pref.max());
 
         GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(6);
+        grid.setHgap(UIConstants.DETAIL_GRID_HGAP);
+        grid.setVgap(UIConstants.DETAIL_GRID_VGAP);
         int row = 0;
         grid.add(new Label("Name:"), 0, row);
         grid.add(nameField, 1, row++);
@@ -278,13 +278,13 @@ public class DetailsPanel extends TitledPane {
         Spinner<Integer> s = new Spinner<>();
         s.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial));
         s.setEditable(true);
-        s.setPrefWidth(80);
+        s.setPrefWidth(UIConstants.SPINNER_WIDTH);
         return s;
     }
 
     private static Label heading(String text) {
         Label l = new Label(text);
-        l.setStyle("-fx-font-weight: bold; -fx-font-size: 13;");
+        l.setStyle("-fx-font-weight: bold; -fx-font-size: " + (int) UIConstants.FONT_SIZE + ";");
         return l;
     }
 
@@ -296,7 +296,7 @@ public class DetailsPanel extends TitledPane {
 
     private static Label muted(String text) {
         Label l = new Label(text);
-        l.setStyle("-fx-text-fill: #888;");
+        l.setStyle("-fx-text-fill: " + UIConstants.COLOR_MUTED_TEXT + ";");
         return l;
     }
 }

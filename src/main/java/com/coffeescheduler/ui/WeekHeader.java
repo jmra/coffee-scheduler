@@ -7,7 +7,7 @@ import java.util.Locale;
 
 public final class WeekHeader {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEE MMM d", Locale.ENGLISH);
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern(UIConstants.DATE_PATTERN_WEEK_HEADER, Locale.ENGLISH);
 
     private WeekHeader() {}
 

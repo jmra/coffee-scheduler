@@ -3,7 +3,6 @@ package com.coffeescheduler.ui;
 import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
-import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -14,8 +13,6 @@ import javafx.scene.control.TitledPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-
-//import java.util.Set;
 
 public class RulesPanel extends TitledPane {
 
@@ -85,18 +82,18 @@ public class RulesPanel extends TitledPane {
         Label incLabel = new Label("Inclusion Groups");
         incLabel.setStyle("-fx-font-weight: bold;");
 
-        VBox content = new VBox(8,
+        VBox content = new VBox(UIConstants.PANEL_SPACING,
                 excLabel,
-                new HBox(8, excAddBtn, excEditBtn, excRemoveBtn),
+                new HBox(UIConstants.PANEL_SPACING, excAddBtn, excEditBtn, excRemoveBtn),
                 exclusionList,
                 incLabel,
-                new HBox(8, incAddBtn, incEditBtn, incRemoveBtn),
+                new HBox(UIConstants.PANEL_SPACING, incAddBtn, incEditBtn, incRemoveBtn),
                 inclusionList);
-        content.setPadding(new Insets(8));
+        content.setPadding(UIConstants.PANEL_INSETS);
         setContent(content);
         setCollapsible(true);
         setExpanded(false);
-        setPrefWidth(220);
+        setPrefWidth(UIConstants.RULES_PANEL_WIDTH);
     }
 
     public void setSchedule(Schedule schedule) {

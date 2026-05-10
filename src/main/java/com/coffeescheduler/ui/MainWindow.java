@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -312,7 +311,7 @@ public class MainWindow extends BorderPane {
 
     private void showEmptyState() {
         Label prompt = new Label("No schedule open. Use File → New (Ctrl+N) to create one.");
-        prompt.setStyle("-fx-text-fill: #888; -fx-font-size: 14;");
+        prompt.setStyle("-fx-text-fill: " + UIConstants.COLOR_MUTED_TEXT + "; -fx-font-size: " + (int) UIConstants.FONT_SIZE_PROMPT + ";");
         VBox box = new VBox(prompt);
         box.setAlignment(Pos.CENTER);
         setCenter(box);
@@ -464,8 +463,8 @@ public class MainWindow extends BorderPane {
         statusViolations.setCursor(javafx.scene.Cursor.HAND);
         statusViolations.setOnMouseClicked(e -> toggleViolationsPanel());
 
-        HBox bar = new HBox(12, statusFile, statusSummary, spacer, statusViolations);
-        bar.setPadding(new Insets(4, 8, 4, 8));
+        HBox bar = new HBox(UIConstants.STATUS_BAR_SPACING, statusFile, statusSummary, spacer, statusViolations);
+        bar.setPadding(UIConstants.STATUS_BAR_INSETS);
         return bar;
     }
 }

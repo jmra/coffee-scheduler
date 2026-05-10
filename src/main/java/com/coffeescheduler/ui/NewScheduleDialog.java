@@ -38,18 +38,18 @@ public class NewScheduleDialog extends Dialog<Schedule> {
         Spinner<Integer> weeksSpinner = intSpinner(1, 104, 52);
         TextField blockSizesField = new TextField("52");
         blockSizesField.setPromptText("e.g. 4,4,4");
-        blockSizesField.setPrefWidth(160);
+        blockSizesField.setPrefWidth(UIConstants.BLOCK_SIZES_FIELD_WIDTH);
         Label blockError = new Label();
-        blockError.setStyle("-fx-text-fill: red; -fx-font-size: 11;");
+        blockError.setStyle("-fx-text-fill: red; -fx-font-size: " + (int) UIConstants.FONT_SIZE_ERROR + ";");
         Spinner<Integer> demandMin = intSpinner(0, 20, 2);
         Spinner<Integer> demandIdeal = intSpinner(0, 20, 3);
         Spinner<Integer> demandMax = intSpinner(0, 20, 5);
         Spinner<Integer> restWeeks = intSpinner(1, 12, 2);
 
         GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(16));
+        grid.setHgap(UIConstants.DIALOG_HGAP);
+        grid.setVgap(UIConstants.DIALOG_VGAP);
+        grid.setPadding(new Insets(UIConstants.DIALOG_PADDING));
         int row = 0;
         grid.add(new Label("Start Monday:"), 0, row);
         grid.add(startDate, 1, row++);
@@ -130,7 +130,7 @@ public class NewScheduleDialog extends Dialog<Schedule> {
         Spinner<Integer> s = new Spinner<>();
         s.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial));
         s.setEditable(true);
-        s.setPrefWidth(80);
+        s.setPrefWidth(UIConstants.SPINNER_WIDTH);
         return s;
     }
 

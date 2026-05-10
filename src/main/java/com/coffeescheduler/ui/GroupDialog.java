@@ -35,7 +35,7 @@ public class GroupDialog extends Dialog<GroupDialog.Result> {
         }
 
         List<CheckBox> checkboxes = new ArrayList<>();
-        VBox checkboxContainer = new VBox(4);
+        VBox checkboxContainer = new VBox(UIConstants.CHECKBOX_SPACING);
         for (Clinician c : roster) {
             CheckBox cb = new CheckBox(c.name());
             if (existingMembers != null && existingMembers.contains(c.name())) {
@@ -48,11 +48,11 @@ public class GroupDialog extends Dialog<GroupDialog.Result> {
         Label errorLabel = new Label();
         errorLabel.setStyle("-fx-text-fill: red;");
 
-        VBox content = new VBox(8,
+        VBox content = new VBox(UIConstants.PANEL_SPACING,
                 new Label("Name:"), nameField,
                 new Label("Members:"), checkboxContainer,
                 errorLabel);
-        content.setPadding(new Insets(16));
+        content.setPadding(new Insets(UIConstants.DIALOG_PADDING));
 
         getDialogPane().setContent(content);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);

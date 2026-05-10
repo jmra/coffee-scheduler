@@ -35,13 +35,13 @@ import java.util.Set;
 
 public class ScheduleGrid extends GridPane {
 
-    private static final double CELL_HEIGHT = 24;
-    private static final double CELL_WIDTH = 90;
-    private static final double ROW_HEADER_PAD = 24;
+    private static final double CELL_HEIGHT = UIConstants.CELL_HEIGHT;
+    private static final double CELL_WIDTH = UIConstants.CELL_WIDTH;
+    private static final double ROW_HEADER_PAD = UIConstants.ROW_HEADER_PAD;
 
-    private static final double TRIANGLE_SIZE = 6;
-    private static final double MARKER_SIZE = 10;
-    private static final double SCROLLBAR_WIDTH = 17;
+    private static final double TRIANGLE_SIZE = UIConstants.TRIANGLE_SIZE;
+    private static final double MARKER_SIZE = UIConstants.MARKER_SIZE;
+    private static final double SCROLLBAR_WIDTH = UIConstants.SCROLLBAR_WIDTH;
 
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
@@ -62,9 +62,9 @@ public class ScheduleGrid extends GridPane {
 
         // Column header grid (clinician names)
         GridPane colHeaderGrid = new GridPane();
-        colHeaderGrid.setHgap(1);
-        colHeaderGrid.setVgap(1);
-        colHeaderGrid.setPadding(new Insets(0, 8, 0, 0));
+        colHeaderGrid.setHgap(UIConstants.GRID_GAP);
+        colHeaderGrid.setVgap(UIConstants.GRID_GAP);
+        colHeaderGrid.setPadding(new Insets(0, UIConstants.PANEL_SPACING, 0, 0));
         for (int c = 0; c < schedule.roster().size(); c++) {
             Clinician clin = schedule.roster().get(c);
             Label header = buildHeader(clin.name(), CELL_WIDTH);
@@ -79,9 +79,9 @@ public class ScheduleGrid extends GridPane {
 
         // Row header grid (week labels)
         GridPane rowHeaderGrid = new GridPane();
-        rowHeaderGrid.setHgap(1);
-        rowHeaderGrid.setVgap(1);
-        rowHeaderGrid.setPadding(new Insets(0, 0, 8, 0));
+        rowHeaderGrid.setHgap(UIConstants.GRID_GAP);
+        rowHeaderGrid.setVgap(UIConstants.GRID_GAP);
+        rowHeaderGrid.setPadding(new Insets(0, 0, UIConstants.PANEL_SPACING, 0));
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int week = w;
             int block = schedule.scheduleBlockOf(w);
@@ -100,9 +100,9 @@ public class ScheduleGrid extends GridPane {
 
         // Data grid (cells only)
         GridPane dataGrid = new GridPane();
-        dataGrid.setHgap(1);
-        dataGrid.setVgap(1);
-        dataGrid.setPadding(new Insets(0, 8, 8, 0));
+        dataGrid.setHgap(UIConstants.GRID_GAP);
+        dataGrid.setVgap(UIConstants.GRID_GAP);
+        dataGrid.setPadding(new Insets(0, UIConstants.PANEL_SPACING, UIConstants.PANEL_SPACING, 0));
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int week = w;
             boolean lastInBlock = blockBoundaries.contains(w);
@@ -152,7 +152,7 @@ public class ScheduleGrid extends GridPane {
         // Corner placeholder
         Label corner = new Label();
         corner.setPrefSize(rowHeaderWidth + 2, CELL_HEIGHT + 2);
-        corner.setStyle("-fx-background-color: #e0e0e0;");
+        corner.setStyle("-fx-background-color: " + UIConstants.COLOR_HEADER_BG + ";");
 
         // Layout: 2x2 grid
         add(corner, 0, 0);
@@ -367,15 +367,15 @@ public class ScheduleGrid extends GridPane {
         String border;
         String borderWidth;
         if (selected) {
-            border = "#1976D2";
+            border = UIConstants.COLOR_SELECTION;
             borderWidth = "2";
         } else {
-            border = "#d0d0d0";
+            border = UIConstants.COLOR_BORDER;
             borderWidth = "0.5";
         }
         if (lastInBlock && !selected) {
             borderWidth = "0.5 0.5 3 0.5";
-            border = border + " " + border + " #616161 " + border;
+            border = border + " " + border + " " + UIConstants.COLOR_BLOCK_SEPARATOR + " " + border;
         }
         return "-fx-background-color: " + colorFor(state, pinned) + ";"
                 + " -fx-border-color: " + border + ";"
@@ -398,7 +398,7 @@ public class ScheduleGrid extends GridPane {
         List<RuleViolation> violations = violationMap.get(ref);
         if (violations != null && !violations.isEmpty()) {
             Polygon triangle = new Polygon(0, 0, TRIANGLE_SIZE, 0, TRIANGLE_SIZE, TRIANGLE_SIZE);
-            triangle.setFill(Color.web("#d32f2f"));
+            triangle.setFill(Color.web(UIConstants.COLOR_VIOLATION));
             triangle.setMouseTransparent(true);
             StackPane.setAlignment(triangle, Pos.TOP_RIGHT);
             cell.getChildren().add(triangle);
@@ -414,13 +414,13 @@ public class ScheduleGrid extends GridPane {
     private static void addMarkerIndicator(StackPane cell, Set<WeekMarker> markers) {
         if (markers.contains(WeekMarker.PREFER_ON)) {
             Polygon arrow = new Polygon(0, MARKER_SIZE, MARKER_SIZE / 2, 0, MARKER_SIZE, MARKER_SIZE);
-            arrow.setFill(Color.web("#424242"));
+            arrow.setFill(Color.web(UIConstants.COLOR_MARKER));
             arrow.setMouseTransparent(true);
             StackPane.setAlignment(arrow, Pos.BOTTOM_LEFT);
             cell.getChildren().add(arrow);
         } else if (markers.contains(WeekMarker.PREFER_OFF)) {
             Polygon arrow = new Polygon(0, 0, MARKER_SIZE / 2, MARKER_SIZE, MARKER_SIZE, 0);
-            arrow.setFill(Color.web("#424242"));
+            arrow.setFill(Color.web(UIConstants.COLOR_MARKER));
             arrow.setMouseTransparent(true);
             StackPane.setAlignment(arrow, Pos.BOTTOM_LEFT);
             cell.getChildren().add(arrow);
@@ -438,7 +438,7 @@ public class ScheduleGrid extends GridPane {
         Label header = new Label(text);
         header.setPrefSize(width, CELL_HEIGHT);
         header.setAlignment(Pos.CENTER);
-        header.setStyle("-fx-font-weight: bold; -fx-background-color: #e0e0e0;");
+        header.setStyle("-fx-font-weight: bold; -fx-background-color: " + UIConstants.COLOR_HEADER_BG + ";");
         return header;
     }
 
@@ -447,14 +447,14 @@ public class ScheduleGrid extends GridPane {
         Label header = new Label(text);
         header.setPrefSize(width, CELL_HEIGHT);
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(0, 8, 0, 8));
-        String bg = (block % 2 == 0) ? "#d4d4d4" : "#e0e0e0";
+        header.setPadding(UIConstants.ROW_HEADER_CELL_INSETS);
+        String bg = (block % 2 == 0) ? UIConstants.COLOR_ROW_ALT_EVEN : UIConstants.COLOR_ROW_ALT_ODD;
         String bottomBorder = lastInBlock ? "3" : "0.5";
         String leftBorder = hasOverride ? "3" : "0.5";
-        String leftColor = hasOverride ? "#1976D2" : "#e0e0e0";
+        String leftColor = hasOverride ? UIConstants.COLOR_SELECTION : UIConstants.COLOR_HEADER_BG;
         String borderColor = lastInBlock
-                ? leftColor + " #e0e0e0 #616161 " + leftColor
-                : leftColor + " #e0e0e0 #e0e0e0 " + leftColor;
+                ? leftColor + " " + UIConstants.COLOR_HEADER_BG + " " + UIConstants.COLOR_BLOCK_SEPARATOR + " " + leftColor
+                : leftColor + " " + UIConstants.COLOR_HEADER_BG + " " + UIConstants.COLOR_HEADER_BG + " " + leftColor;
         header.setStyle("-fx-font-weight: bold; -fx-background-color: " + bg + ";"
                 + " -fx-border-color: " + borderColor + ";"
                 + " -fx-border-width: 0.5 0.5 " + bottomBorder + " " + leftBorder + ";");
@@ -463,7 +463,7 @@ public class ScheduleGrid extends GridPane {
 
     private static double computeRowHeaderWidth(Schedule schedule) {
         Text measure = new Text();
-        measure.setFont(Font.font("System", 13));
+        measure.setFont(Font.font(UIConstants.FONT_FAMILY, UIConstants.FONT_SIZE));
         double max = 0;
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int block = schedule.scheduleBlockOf(w);
@@ -487,11 +487,11 @@ public class ScheduleGrid extends GridPane {
 
     private static String colorFor(WeekState state, boolean pinned) {
         if (state == WeekState.ON) {
-            return pinned ? "#66bb6a" : "#a5d6a7";
+            return pinned ? UIConstants.COLOR_ON_PINNED : UIConstants.COLOR_ON_UNPINNED;
         }
         if (state == WeekState.UNAVAILABLE) {
-            return "#bdbdbd";
+            return UIConstants.COLOR_UNAVAILABLE;
         }
-        return "#ffffff";
+        return UIConstants.COLOR_OFF;
     }
 }
