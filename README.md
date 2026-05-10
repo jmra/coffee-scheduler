@@ -22,7 +22,7 @@ Requires JDK 25+ and a desktop environment (X11/Wayland on Linux, or native on m
 
 ```bash
 mvn javafx:run        # launch the app
-mvn test              # run all tests (171 as of 2026-05-08)
+mvn test              # run all tests (201 as of 2026-05-09)
 ```
 
 ## Packaging a native executable
@@ -72,6 +72,7 @@ src/main/java/com/coffeescheduler/
 │   ├── BlockLengthRange.java   Record: preferred block min/max
 │   ├── Clinician.java          Record: name, contracted weeks, block config
 │   ├── ContractedWeeks.java    Record: contracted weeks min/max
+│   ├── DemandOverride.java     Record: per-span demand override (startWeek, endWeek, demand)
 │   ├── ExclusionGroup.java     Record: named group of mutually-exclusive clinicians
 │   ├── InclusionGroup.java     Record: named group where ≥1 must be ON each week
 │   ├── RuleViolation.java      Record: (message, clinician?, week?)

@@ -3,7 +3,9 @@ package com.coffeescheduler.io;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.DemandOverride;
 import com.coffeescheduler.model.ExclusionGroup;
+import com.coffeescheduler.model.WeeklyDemand;
 import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
@@ -214,6 +216,48 @@ class ScheduleJsonTest {
         assertEquals(1, restored.inclusionGroups().size());
         assertEquals("Exc", restored.exclusionGroups().get(0).name());
         assertEquals("Inc", restored.inclusionGroups().get(0).name());
+    }
+
+    @Test
+    void roundTripsDemandOverrides() {
+        Schedule original = new Schedule(START, 52, List.of(ADAMS));
+        original.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+        original.addDemandOverride(new DemandOverride(50, 52, new WeeklyDemand(0, 1, 2)));
+
+        Schedule restored = ScheduleJson.fromJson(ScheduleJson.toJson(original));
+
+        assertEquals(2, restored.demandOverrides().size());
+        assertEquals(10, restored.demandOverrides().get(0).startWeek());
+        assertEquals(15, restored.demandOverrides().get(0).endWeek());
+        assertEquals(new WeeklyDemand(1, 2, 3), restored.demandOverrides().get(0).demand());
+        assertEquals(50, restored.demandOverrides().get(1).startWeek());
+    }
+
+    @Test
+    void loadsOldJsonWithoutDemandOverrides() {
+        String json = """
+                {
+                  "startMonday": "2026-01-05",
+                  "lengthWeeks": 52,
+                  "roster": [],
+                  "assignments": [],
+                  "markers": []
+                }
+                """;
+
+        Schedule restored = ScheduleJson.fromJson(json);
+
+        assertTrue(restored.demandOverrides().isEmpty());
+    }
+
+    @Test
+    void savedJsonContainsDemandOverridesKey() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+
+        String json = ScheduleJson.toJson(s);
+
+        assertTrue(json.contains("\"demandOverrides\""), "JSON should contain demandOverrides key");
     }
 
     private static Clinician clinician(String name) {

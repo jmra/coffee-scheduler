@@ -46,7 +46,7 @@ public class ConstructiveGenerator implements ScheduleGenerator {
 
     private void stepWeek(int week, Schedule schedule, Map<Clinician, ClinicianTracker> trackers,
                           List<RuleViolation> violations) {
-        WeeklyDemand demand = schedule.defaultDemand();
+        WeeklyDemand demand = schedule.demandFor(week);
         List<Clinician> forcedOn = new ArrayList<>();
         List<Clinician> forcedOff = new ArrayList<>();
         List<Clinician> optional = new ArrayList<>();

@@ -28,6 +28,7 @@ public class Schedule {
     private final Set<Cell> pinnedCells = new HashSet<>();
     private final List<ExclusionGroup> exclusionGroups = new ArrayList<>();
     private final List<InclusionGroup> inclusionGroups = new ArrayList<>();
+    private final List<DemandOverride> demandOverrides = new ArrayList<>();
 
     public Schedule(LocalDate startMonday, int lengthWeeks, List<Clinician> roster) {
         this(startMonday, lengthWeeks, roster, new WeeklyDemand(2, 3, 5), DEFAULT_REST_WEEKS);
@@ -94,6 +95,7 @@ public class Schedule {
             states.keySet().removeIf(cell -> cell.week() > lengthWeeks);
             markers.keySet().removeIf(cell -> cell.week() > lengthWeeks);
             pinnedCells.removeIf(cell -> cell.week() > lengthWeeks);
+            trimDemandOverrides(lengthWeeks);
         }
         this.lengthWeeks = lengthWeeks;
     }
@@ -266,6 +268,81 @@ public class Schedule {
         for (InclusionGroup ig : inclusionGroups) {
             if (ig.name().equals(name)) {
                 throw new IllegalArgumentException("group name already exists: " + name);
+            }
+        }
+    }
+
+    public WeeklyDemand demandFor(int week) {
+        for (DemandOverride o : demandOverrides) {
+            if (week >= o.startWeek() && week <= o.endWeek()) {
+                return o.demand();
+            }
+        }
+        return defaultDemand;
+    }
+
+    public List<DemandOverride> demandOverrides() {
+        return Collections.unmodifiableList(demandOverrides);
+    }
+
+    public void addDemandOverride(DemandOverride override) {
+        if (override.endWeek() > lengthWeeks) {
+            throw new IllegalArgumentException(
+                    "override end week " + override.endWeek() + " exceeds schedule length " + lengthWeeks);
+        }
+        checkNoOverlap(override, -1);
+        demandOverrides.add(override);
+        demandOverrides.sort(java.util.Comparator.comparingInt(DemandOverride::startWeek));
+    }
+
+    public void removeDemandOverride(int startWeek) {
+        boolean removed = demandOverrides.removeIf(o -> o.startWeek() == startWeek);
+        if (!removed) {
+            throw new IllegalArgumentException("no demand override starting at week " + startWeek);
+        }
+    }
+
+    public void replaceDemandOverride(int oldStartWeek, DemandOverride replacement) {
+        int idx = -1;
+        for (int i = 0; i < demandOverrides.size(); i++) {
+            if (demandOverrides.get(i).startWeek() == oldStartWeek) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) {
+            throw new IllegalArgumentException("no demand override starting at week " + oldStartWeek);
+        }
+        if (replacement.endWeek() > lengthWeeks) {
+            throw new IllegalArgumentException(
+                    "override end week " + replacement.endWeek() + " exceeds schedule length " + lengthWeeks);
+        }
+        checkNoOverlap(replacement, idx);
+        demandOverrides.set(idx, replacement);
+        demandOverrides.sort(java.util.Comparator.comparingInt(DemandOverride::startWeek));
+    }
+
+    private void checkNoOverlap(DemandOverride candidate, int skipIndex) {
+        for (int i = 0; i < demandOverrides.size(); i++) {
+            if (i == skipIndex) continue;
+            DemandOverride existing = demandOverrides.get(i);
+            if (candidate.startWeek() <= existing.endWeek() && candidate.endWeek() >= existing.startWeek()) {
+                throw new IllegalArgumentException(
+                        "override weeks " + candidate.startWeek() + "-" + candidate.endWeek()
+                                + " overlaps with existing " + existing.startWeek() + "-" + existing.endWeek());
+            }
+        }
+    }
+
+    private void trimDemandOverrides(int newLength) {
+        var it = demandOverrides.iterator();
+        while (it.hasNext()) {
+            DemandOverride o = it.next();
+            if (o.startWeek() > newLength) {
+                it.remove();
+            } else if (o.endWeek() > newLength) {
+                demandOverrides.set(demandOverrides.indexOf(o),
+                        new DemandOverride(o.startWeek(), newLength, o.demand()));
             }
         }
     }

@@ -103,6 +103,11 @@ public class MainWindow extends BorderPane {
         setDirty(true);
     }
 
+    private void onDemandChanged() {
+        rebuildGrid();
+        setDirty(true);
+    }
+
     private void onScheduleEdited(DetailsPanel details) {
         details.refresh();
         rosterPanel.refresh();
@@ -112,7 +117,7 @@ public class MainWindow extends BorderPane {
     private void rebuildGrid() {
         if (schedule == null) return;
         selection.set(Selection.NONE);
-        detailsPanel = new DetailsPanel(schedule, selection, this::onClinicianEdited);
+        detailsPanel = new DetailsPanel(schedule, selection, this::onClinicianEdited, this::onDemandChanged);
         setCenter(new ScheduleGrid(schedule, selection, () -> onScheduleEdited(detailsPanel)));
         setRight(detailsVisible ? detailsPanel : null);
         statusSummary.setText(ScheduleSummary.format(schedule));

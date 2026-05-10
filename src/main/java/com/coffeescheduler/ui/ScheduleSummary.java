@@ -14,9 +14,12 @@ public final class ScheduleSummary {
         int contractedMinSum = schedule.roster().stream()
                 .mapToInt(c -> c.contractedWeeks().min())
                 .sum();
+        int contractedMaxSum = schedule.roster().stream()
+                .mapToInt(c -> c.contractedWeeks().max())
+                .sum();
         return schedule.lengthWeeks() + " weeks · "
                 + clinicianCount + pluralize(" clinician", clinicianCount) + " · "
-                + scheduledOn + "/" + contractedMinSum + " clinician-weeks scheduled";
+                + scheduledOn + "/" + contractedMinSum + "-" + contractedMaxSum + " clinician-weeks scheduled";
     }
 
     private static int countScheduledOn(Schedule schedule) {

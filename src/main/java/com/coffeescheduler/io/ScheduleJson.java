@@ -1,6 +1,7 @@
 package com.coffeescheduler.io;
 
 import com.coffeescheduler.model.Clinician;
+import com.coffeescheduler.model.DemandOverride;
 import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
@@ -55,6 +56,11 @@ public final class ScheduleJson {
         }
         RulesBlock rules = new RulesBlock(exclusionGroupEntries, inclusionGroupEntries);
 
+        List<DemandOverrideEntry> demandOverrideEntries = new ArrayList<>();
+        for (DemandOverride o : schedule.demandOverrides()) {
+            demandOverrideEntries.add(new DemandOverrideEntry(o.startWeek(), o.endWeek(), o.demand()));
+        }
+
         ScheduleDocument doc = new ScheduleDocument(
                 schedule.startMonday(),
                 schedule.lengthWeeks(),
@@ -65,7 +71,8 @@ public final class ScheduleJson {
                 assignments,
                 markers,
                 pins,
-                rules);
+                rules,
+                demandOverrideEntries);
         try {
             return MAPPER.writeValueAsString(doc);
         } catch (JsonProcessingException e) {
@@ -116,6 +123,12 @@ public final class ScheduleJson {
                     }
                 }
             }
+            if (doc.demandOverrides() != null) {
+                for (DemandOverrideEntry entry : doc.demandOverrides()) {
+                    schedule.addDemandOverride(
+                            new DemandOverride(entry.startWeek(), entry.endWeek(), entry.demand()));
+                }
+            }
             return schedule;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Failed to parse schedule JSON", e);
@@ -140,7 +153,8 @@ public final class ScheduleJson {
             List<AssignmentEntry> assignments,
             List<MarkerEntry> markers,
             List<PinEntry> pins,
-            RulesBlock rules) {}
+            RulesBlock rules,
+            List<DemandOverrideEntry> demandOverrides) {}
 
     private record RulesBlock(List<GroupEntry> exclusionGroups, List<GroupEntry> inclusionGroups) {}
 
@@ -151,4 +165,6 @@ public final class ScheduleJson {
     private record MarkerEntry(String clinician, int week, List<WeekMarker> markers) {}
 
     private record PinEntry(String clinician, int week) {}
+
+    private record DemandOverrideEntry(int startWeek, int endWeek, WeeklyDemand demand) {}
 }

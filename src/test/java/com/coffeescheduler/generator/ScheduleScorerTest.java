@@ -3,6 +3,7 @@ package com.coffeescheduler.generator;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.DemandOverride;
 import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
@@ -285,6 +286,76 @@ class ScheduleScorerTest {
 
         assertTrue(result.violations().stream().anyMatch(v ->
                 v.message().contains("Group Y") && v.clinician() == null && v.week() == 1));
+    }
+
+    @Test
+    void scorerUsesOverriddenDemandForViolations() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        // Default demand min=0, max=2. Override weeks 1-2 to min=2.
+        Schedule s = new Schedule(START, 4, List.of(a, b), new WeeklyDemand(0, 1, 2), 2);
+        s.addDemandOverride(new DemandOverride(1, 2, new WeeklyDemand(2, 2, 2)));
+        // Only A on for weeks 1-2 → violates overridden min=2
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("min") && v.week() == 1));
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("min") && v.week() == 2));
+    }
+
+    @Test
+    void scorerUsesDefaultDemandForNonOverriddenWeeks() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Clinician b = clinician("Dr. B", 2, 10);
+        // Default demand max=1. Override weeks 1-2 to max=2.
+        Schedule s = new Schedule(START, 4, List.of(a, b), new WeeklyDemand(0, 1, 1), 2);
+        s.addDemandOverride(new DemandOverride(1, 2, new WeeklyDemand(0, 2, 2)));
+        // Both on for weeks 1-2 (ok, override max=2) and week 3 (violates default max=1)
+        s.setState(a, 1, WeekState.ON);
+        s.setState(b, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+        s.setState(b, 2, WeekState.ON);
+        s.setState(a, 3, WeekState.ON);
+        s.setState(b, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        // No max violation for weeks 1-2
+        assertTrue(result.violations().stream().noneMatch(v ->
+                v.message().contains("max") && (v.week() == 1 || v.week() == 2)));
+        // Max violation for week 3
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("max") && v.week() == 3));
+    }
+
+    @Test
+    void scorerSoftScoreUsesOverriddenIdeal() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        // Default ideal=1, override weeks 1-2 to ideal=0
+        Schedule s = new Schedule(START, 4, List.of(a), new WeeklyDemand(0, 1, 2), 2);
+        s.addDemandOverride(new DemandOverride(1, 2, new WeeklyDemand(0, 0, 2)));
+        // A on for weeks 1-2: each deviates from overridden ideal=0 by 1
+        // Weeks 3-4: no one on, deviates from default ideal=1 by 1
+        s.setState(a, 1, WeekState.ON);
+        s.setState(a, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult withOverride = scorer.score(s);
+
+        // Compare: same schedule without override, ideal=1 everywhere
+        Schedule s2 = new Schedule(START, 4, List.of(a), new WeeklyDemand(0, 1, 2), 2);
+        s2.setState(a, 1, WeekState.ON);
+        s2.setState(a, 2, WeekState.ON);
+
+        ScheduleScorer.ScoreResult withoutOverride = scorer.score(s2);
+
+        // With override: weeks 1-2 deviate by 1 from ideal=0, weeks 3-4 deviate by 1 from ideal=1 → total -4
+        // Without override: weeks 1-2 deviate by 0 from ideal=1, weeks 3-4 deviate by 1 from ideal=1 → total -2
+        assertTrue(withOverride.softScore() < withoutOverride.softScore(),
+                "override should penalize weeks 1-2 for deviating from overridden ideal=0");
     }
 
     private static Clinician clinician(String name, int contractMin, int contractMax) {

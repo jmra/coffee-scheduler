@@ -3,10 +3,12 @@ package com.coffeescheduler.ui;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.DemandOverride;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.Selection;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
+import com.coffeescheduler.model.WeeklyDemand;
 import javafx.beans.property.ObjectProperty;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
@@ -29,14 +31,16 @@ public class DetailsPanel extends TitledPane {
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
     private final Consumer<Clinician> onClinicianEdited;
+    private final Runnable onDemandChanged;
     private final VBox body = new VBox(8);
 
     public DetailsPanel(Schedule schedule, ObjectProperty<Selection> selection,
-                        Consumer<Clinician> onClinicianEdited) {
+                        Consumer<Clinician> onClinicianEdited, Runnable onDemandChanged) {
         super("Details", null);
         this.schedule = schedule;
         this.selection = selection;
         this.onClinicianEdited = onClinicianEdited;
+        this.onDemandChanged = onDemandChanged;
         body.setPadding(new Insets(8));
         setContent(body);
         setCollapsible(true);
@@ -105,13 +109,120 @@ public class DetailsPanel extends TitledPane {
                 onList.getChildren().add(new Label("• " + c.name()));
             }
         }
+
+        WeeklyDemand effective = schedule.demandFor(week);
+        DemandOverride existing = findOverrideContaining(week);
+
         body.getChildren().addAll(
                 heading("Week"),
                 kv("Index", "Week " + week),
                 kv("Date", schedule.startMonday().plusWeeks(week - 1).format(DATE)),
                 kv("Coverage", on.size() + " on clinic"),
+                kv("Demand", effective.min() + " / " + effective.ideal() + " / " + effective.max()
+                        + (existing == null ? " (default)" : " (override)")),
                 new Label("On this week:"),
                 onList);
+
+        if (existing == null) {
+            Button overrideBtn = new Button("Override demand...");
+            overrideBtn.setOnAction(e -> showOverrideEditor(week, null));
+            body.getChildren().add(overrideBtn);
+        } else {
+            showOverrideEditor(week, existing);
+        }
+    }
+
+    private void showOverrideEditor(int week, DemandOverride existing) {
+        WeeklyDemand d = existing != null ? existing.demand() : schedule.defaultDemand();
+        int startInit = existing != null ? existing.startWeek() : week;
+        int endInit = existing != null ? existing.endWeek() : week;
+
+        Spinner<Integer> startSpin = intSpinner(1, schedule.lengthWeeks(), startInit);
+        Spinner<Integer> endSpin = intSpinner(1, schedule.lengthWeeks(), endInit);
+        Spinner<Integer> minSpin = intSpinner(0, 20, d.min());
+        Spinner<Integer> idealSpin = intSpinner(0, 20, d.ideal());
+        Spinner<Integer> maxSpin = intSpinner(0, 20, d.max());
+
+        Label errorLabel = new Label();
+        errorLabel.setStyle("-fx-text-fill: red;");
+        errorLabel.setWrapText(true);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(6);
+        int row = 0;
+        grid.add(new Label("Start week:"), 0, row);
+        grid.add(startSpin, 1, row++);
+        grid.add(new Label("End week:"), 0, row);
+        grid.add(endSpin, 1, row++);
+        grid.add(new Label("Min:"), 0, row);
+        grid.add(minSpin, 1, row++);
+        grid.add(new Label("Ideal:"), 0, row);
+        grid.add(idealSpin, 1, row++);
+        grid.add(new Label("Max:"), 0, row);
+        grid.add(maxSpin, 1, row);
+
+        Button apply = new Button("Apply");
+        Runnable validate = () -> {
+            String err = validateOverride(startSpin.getValue(), endSpin.getValue(),
+                    minSpin.getValue(), idealSpin.getValue(), maxSpin.getValue(),
+                    existing);
+            errorLabel.setText(err != null ? err : "");
+            apply.setDisable(err != null);
+        };
+        startSpin.valueProperty().addListener((o, a, b) -> validate.run());
+        endSpin.valueProperty().addListener((o, a, b) -> validate.run());
+        minSpin.valueProperty().addListener((o, a, b) -> validate.run());
+        idealSpin.valueProperty().addListener((o, a, b) -> validate.run());
+        maxSpin.valueProperty().addListener((o, a, b) -> validate.run());
+        validate.run();
+
+        apply.setOnAction(e -> {
+            DemandOverride replacement = new DemandOverride(
+                    startSpin.getValue(), endSpin.getValue(),
+                    new WeeklyDemand(minSpin.getValue(), idealSpin.getValue(), maxSpin.getValue()));
+            if (existing != null) {
+                schedule.replaceDemandOverride(existing.startWeek(), replacement);
+            } else {
+                schedule.addDemandOverride(replacement);
+            }
+            onDemandChanged.run();
+            render(selection.get());
+        });
+
+        body.getChildren().addAll(heading("Demand Override"), grid, errorLabel, apply);
+
+        if (existing != null) {
+            Button remove = new Button("Remove");
+            remove.setOnAction(e -> {
+                schedule.removeDemandOverride(existing.startWeek());
+                onDemandChanged.run();
+                render(selection.get());
+            });
+            body.getChildren().add(remove);
+        }
+    }
+
+    private String validateOverride(int start, int end, int min, int ideal, int max,
+                                    DemandOverride existing) {
+        if (end < start) return "End week must be >= start week.";
+        if (end > schedule.lengthWeeks()) return "End week exceeds schedule length.";
+        if (min > ideal) return "Min must be <= ideal.";
+        if (ideal > max) return "Ideal must be <= max.";
+        for (DemandOverride o : schedule.demandOverrides()) {
+            if (existing != null && o.startWeek() == existing.startWeek()) continue;
+            if (start <= o.endWeek() && end >= o.startWeek()) {
+                return "Overlaps with existing override (weeks " + o.startWeek() + "-" + o.endWeek() + ").";
+            }
+        }
+        return null;
+    }
+
+    private DemandOverride findOverrideContaining(int week) {
+        for (DemandOverride o : schedule.demandOverrides()) {
+            if (week >= o.startWeek() && week <= o.endWeek()) return o;
+        }
+        return null;
     }
 
     private void renderClinician(Clinician clinician) {

@@ -4,6 +4,7 @@ import com.coffeescheduler.model.Block;
 import com.coffeescheduler.model.BlockLengthRange;
 import com.coffeescheduler.model.Clinician;
 import com.coffeescheduler.model.ContractedWeeks;
+import com.coffeescheduler.model.DemandOverride;
 import com.coffeescheduler.model.ExclusionGroup;
 import com.coffeescheduler.model.InclusionGroup;
 import com.coffeescheduler.model.Schedule;
@@ -431,6 +432,41 @@ class ConstructiveGeneratorTest {
             if (s.stateOf(c, w) == WeekState.ON) count++;
         }
         return count;
+    }
+
+    // --- Demand override tests ---
+
+    @Test
+    void generatorRespectsPerWeekDemandOverride() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        Clinician b = clinician("Dr. B", 4, 10);
+        Clinician c = clinician("Dr. C", 4, 10);
+        // Default demand ideal=2, override weeks 5-6 to ideal=1
+        Schedule s = new Schedule(START, 12, List.of(a, b, c), new WeeklyDemand(1, 2, 3), 2);
+        s.addDemandOverride(new DemandOverride(5, 6, new WeeklyDemand(0, 1, 1)));
+
+        new ConstructiveGenerator().generate(s);
+
+        // Overridden weeks should respect max=1
+        for (int w = 5; w <= 6; w++) {
+            int onCount = s.onClinicians(w).size();
+            assertTrue(onCount <= 1,
+                    "week " + w + ": " + onCount + " on, override max is 1");
+        }
+    }
+
+    @Test
+    void generatorRecordsViolationForOverriddenDemandMin() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        // Default demand min=0, override weeks 1-4 to min=2
+        Schedule s = new Schedule(START, 10, List.of(a), new WeeklyDemand(0, 0, 2), 2);
+        s.addDemandOverride(new DemandOverride(1, 4, new WeeklyDemand(2, 2, 2)));
+
+        GeneratorResult result = new ConstructiveGenerator().generate(s);
+
+        // Only 1 clinician can't meet min=2, should have violations for those weeks
+        assertTrue(result.violations().stream().anyMatch(v ->
+                v.message().contains("min") && v.week() != null && v.week() <= 4));
     }
 
     private static Clinician clinician(String name, int contractMin, int contractMax) {

@@ -8,6 +8,7 @@ import com.coffeescheduler.model.RuleViolation;
 import com.coffeescheduler.model.Schedule;
 import com.coffeescheduler.model.WeekMarker;
 import com.coffeescheduler.model.WeekState;
+import com.coffeescheduler.model.WeeklyDemand;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,18 +27,19 @@ public class ScheduleScorer {
         int soft = 0;
 
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
+            WeeklyDemand demand = schedule.demandFor(w);
             int onCount = schedule.onClinicians(w).size();
-            if (onCount < schedule.defaultDemand().min()) {
+            if (onCount < demand.min()) {
                 violations.add(new RuleViolation(
-                        "Week " + w + ": only " + onCount + " on, min is " + schedule.defaultDemand().min(),
+                        "Week " + w + ": only " + onCount + " on, min is " + demand.min(),
                         null, w));
             }
-            if (onCount > schedule.defaultDemand().max()) {
+            if (onCount > demand.max()) {
                 violations.add(new RuleViolation(
-                        "Week " + w + ": " + onCount + " on exceeds max " + schedule.defaultDemand().max(),
+                        "Week " + w + ": " + onCount + " on exceeds max " + demand.max(),
                         null, w));
             }
-            soft -= Math.abs(onCount - schedule.defaultDemand().ideal());
+            soft -= Math.abs(onCount - demand.ideal());
 
             Set<Clinician> onSet = schedule.onClinicians(w);
             for (ExclusionGroup group : schedule.exclusionGroups()) {

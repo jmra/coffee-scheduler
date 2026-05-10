@@ -81,7 +81,8 @@ public class ScheduleGrid extends ScrollPane {
             int block = schedule.scheduleBlockOf(w);
             boolean lastInBlock = blockBoundaries.contains(w);
             String headerText = WeekHeader.format(w, schedule.startMonday(), schedule.lengthWeeks(), block);
-            Label rowHeader = buildRowHeader(headerText, rowHeaderWidth, block, lastInBlock);
+            boolean hasOverride = schedule.demandFor(w) != schedule.defaultDemand();
+            Label rowHeader = buildRowHeader(headerText, rowHeaderWidth, block, lastInBlock, hasOverride);
             rowHeader.setCursor(Cursor.HAND);
             rowHeader.setOnMouseClicked(e -> {
                 anchor = null;
@@ -363,17 +364,22 @@ public class ScheduleGrid extends ScrollPane {
         return header;
     }
 
-    private static Label buildRowHeader(String text, double width, int block, boolean lastInBlock) {
+    private static Label buildRowHeader(String text, double width, int block, boolean lastInBlock,
+                                        boolean hasOverride) {
         Label header = new Label(text);
         header.setPrefSize(width, CELL_HEIGHT);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(0, 8, 0, 8));
         String bg = (block % 2 == 0) ? "#d4d4d4" : "#e0e0e0";
         String bottomBorder = lastInBlock ? "3" : "0.5";
-        String borderColor = lastInBlock ? "#e0e0e0 #e0e0e0 #616161 #e0e0e0" : "#e0e0e0";
+        String leftBorder = hasOverride ? "3" : "0.5";
+        String leftColor = hasOverride ? "#1976D2" : "#e0e0e0";
+        String borderColor = lastInBlock
+                ? leftColor + " #e0e0e0 #616161 " + leftColor
+                : leftColor + " #e0e0e0 #e0e0e0 " + leftColor;
         header.setStyle("-fx-font-weight: bold; -fx-background-color: " + bg + ";"
                 + " -fx-border-color: " + borderColor + ";"
-                + " -fx-border-width: 0.5 0.5 " + bottomBorder + " 0.5;");
+                + " -fx-border-width: 0.5 0.5 " + bottomBorder + " " + leftBorder + ";");
         return header;
     }
 

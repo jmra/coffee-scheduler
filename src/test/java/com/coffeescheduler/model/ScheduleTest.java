@@ -633,4 +633,188 @@ class ScheduleTest {
                 () -> s.replaceInclusionGroup("Inc Group",
                         new InclusionGroup("Exc Group", Set.of("Dr. Adams", "Dr. Baker"))));
     }
+
+    // --- Demand overrides ---
+
+    @Test
+    void newScheduleHasNoDemandOverrides() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertTrue(s.demandOverrides().isEmpty());
+    }
+
+    @Test
+    void demandForReturnsDefaultWhenNoOverride() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertEquals(s.defaultDemand(), s.demandFor(1));
+        assertEquals(s.defaultDemand(), s.demandFor(52));
+    }
+
+    @Test
+    void addDemandOverrideAndResolve() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        WeeklyDemand holiday = new WeeklyDemand(1, 2, 3);
+        s.addDemandOverride(new DemandOverride(50, 52, holiday));
+
+        assertEquals(holiday, s.demandFor(50));
+        assertEquals(holiday, s.demandFor(51));
+        assertEquals(holiday, s.demandFor(52));
+        assertEquals(s.defaultDemand(), s.demandFor(49));
+    }
+
+    @Test
+    void demandOverridesReturnsSortedList() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        WeeklyDemand d1 = new WeeklyDemand(1, 2, 3);
+        WeeklyDemand d2 = new WeeklyDemand(0, 1, 2);
+        s.addDemandOverride(new DemandOverride(30, 35, d1));
+        s.addDemandOverride(new DemandOverride(10, 15, d2));
+
+        List<DemandOverride> overrides = s.demandOverrides();
+        assertEquals(2, overrides.size());
+        assertEquals(10, overrides.get(0).startWeek());
+        assertEquals(30, overrides.get(1).startWeek());
+    }
+
+    @Test
+    void demandOverridesListIsUnmodifiable() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> s.demandOverrides().add(new DemandOverride(1, 5, new WeeklyDemand(1, 2, 3))));
+    }
+
+    @Test
+    void addDemandOverrideRejectsOverlap() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+
+        // Overlaps at week 15
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addDemandOverride(new DemandOverride(15, 20, new WeeklyDemand(0, 1, 2))));
+        // Contained within
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addDemandOverride(new DemandOverride(12, 13, new WeeklyDemand(0, 1, 2))));
+        // Containing
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addDemandOverride(new DemandOverride(8, 18, new WeeklyDemand(0, 1, 2))));
+    }
+
+    @Test
+    void addDemandOverrideAllowsAdjacentSpans() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+        s.addDemandOverride(new DemandOverride(16, 20, new WeeklyDemand(0, 1, 2)));
+
+        assertEquals(2, s.demandOverrides().size());
+    }
+
+    @Test
+    void addDemandOverrideRejectsBeyondScheduleLength() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.addDemandOverride(new DemandOverride(50, 55, new WeeklyDemand(1, 2, 3))));
+    }
+
+    @Test
+    void removeDemandOverrideByStartWeek() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+
+        s.removeDemandOverride(10);
+
+        assertTrue(s.demandOverrides().isEmpty());
+        assertEquals(s.defaultDemand(), s.demandFor(10));
+    }
+
+    @Test
+    void removeDemandOverrideRejectsUnknownStartWeek() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.removeDemandOverride(10));
+    }
+
+    @Test
+    void replaceDemandOverride() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+
+        WeeklyDemand newDemand = new WeeklyDemand(0, 1, 2);
+        s.replaceDemandOverride(10, new DemandOverride(12, 18, newDemand));
+
+        assertEquals(1, s.demandOverrides().size());
+        assertEquals(12, s.demandOverrides().get(0).startWeek());
+        assertEquals(18, s.demandOverrides().get(0).endWeek());
+        assertEquals(newDemand, s.demandFor(12));
+        assertEquals(s.defaultDemand(), s.demandFor(10));
+    }
+
+    @Test
+    void replaceDemandOverrideRejectsOverlapWithOther() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+        s.addDemandOverride(new DemandOverride(20, 25, new WeeklyDemand(0, 1, 2)));
+
+        // Replace first to overlap with second
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceDemandOverride(10,
+                        new DemandOverride(14, 22, new WeeklyDemand(1, 2, 3))));
+    }
+
+    @Test
+    void replaceDemandOverrideRejectsUnknownStartWeek() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> s.replaceDemandOverride(10,
+                        new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3))));
+    }
+
+    @Test
+    void setLengthWeeksTrimsPartialOverride() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(45, 52, new WeeklyDemand(1, 2, 3)));
+
+        s.setLengthWeeks(48);
+
+        assertEquals(1, s.demandOverrides().size());
+        assertEquals(45, s.demandOverrides().get(0).startWeek());
+        assertEquals(48, s.demandOverrides().get(0).endWeek());
+    }
+
+    @Test
+    void setLengthWeeksDeletesFullyOutOfBoundsOverride() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(45, 52, new WeeklyDemand(1, 2, 3)));
+
+        s.setLengthWeeks(40);
+
+        assertTrue(s.demandOverrides().isEmpty());
+    }
+
+    @Test
+    void setLengthWeeksLeavesInBoundsOverridesUntouched() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(10, 15, new WeeklyDemand(1, 2, 3)));
+
+        s.setLengthWeeks(40);
+
+        assertEquals(1, s.demandOverrides().size());
+        assertEquals(10, s.demandOverrides().get(0).startWeek());
+        assertEquals(15, s.demandOverrides().get(0).endWeek());
+    }
+
+    @Test
+    void setLengthWeeksGrowDoesNotAffectOverrides() {
+        Schedule s = new Schedule(START, 52, List.of(ADAMS));
+        s.addDemandOverride(new DemandOverride(50, 52, new WeeklyDemand(1, 2, 3)));
+
+        s.setLengthWeeks(60);
+
+        assertEquals(1, s.demandOverrides().size());
+        assertEquals(52, s.demandOverrides().get(0).endWeek());
+    }
 }
