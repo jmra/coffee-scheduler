@@ -20,7 +20,7 @@ class ScheduleSummaryTest {
     void emptyRosterShowsZeroes() {
         Schedule s = new Schedule(START, 52, List.of());
 
-        assertEquals("52 weeks · 0 clinicians · 0/0 clinician-weeks scheduled",
+        assertEquals("52 weeks · 0 clinicians · 0/0-0 clinician-weeks scheduled",
                 ScheduleSummary.format(s));
     }
 
@@ -34,7 +34,7 @@ class ScheduleSummaryTest {
         s.setState(baker, 5, WeekState.ON);
         s.setState(baker, 6, WeekState.UNAVAILABLE); // does not count
 
-        assertEquals("52 weeks · 2 clinicians · 3/38 clinician-weeks scheduled",
+        assertEquals("52 weeks · 2 clinicians · 3/38-46 clinician-weeks scheduled",
                 ScheduleSummary.format(s));
     }
 
@@ -43,7 +43,7 @@ class ScheduleSummaryTest {
         Clinician adams = clinician("Dr. Adams", 20, 24);
         Schedule s = new Schedule(START, 52, List.of(adams));
 
-        assertEquals("52 weeks · 1 clinician · 0/20 clinician-weeks scheduled",
+        assertEquals("52 weeks · 1 clinician · 0/20-24 clinician-weeks scheduled",
                 ScheduleSummary.format(s));
     }
 
