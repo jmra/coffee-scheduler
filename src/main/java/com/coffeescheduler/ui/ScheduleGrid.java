@@ -94,8 +94,8 @@ public class ScheduleGrid extends ScrollPane {
             for (int c = 0; c < schedule.roster().size(); c++) {
                 Clinician clin = schedule.roster().get(c);
                 boolean pinned = schedule.isPinned(clin, w);
-                boolean hasMarker = !schedule.markersOf(clin, w).isEmpty();
-                StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, hasMarker, lastInBlock);
+                Set<WeekMarker> markers = schedule.markersOf(clin, w);
+                StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, markers, lastInBlock);
                 cell.setCursor(Cursor.HAND);
                 Selection.CellRef ref = new Selection.CellRef(clin, week);
                 cell.setOnMousePressed(e -> handleCellPressed(e, ref, grid));
@@ -263,15 +263,15 @@ public class ScheduleGrid extends ScrollPane {
         if (node != null) {
             node.setStyle(styleFor(ref, selectedCells().contains(ref)));
             updateTriangle(node, ref);
+            updateMarkerIndicator(node, ref);
         }
     }
 
     private String styleFor(Selection.CellRef ref, boolean selected) {
         WeekState state = schedule.stateOf(ref.clinician(), ref.week());
         boolean pinned = schedule.isPinned(ref.clinician(), ref.week());
-        boolean hasMarker = !schedule.markersOf(ref.clinician(), ref.week()).isEmpty();
         boolean lastInBlock = blockBoundaries.contains(ref.week());
-        return cellStyle(state, selected, pinned, hasMarker, lastInBlock);
+        return cellStyle(state, selected, pinned, lastInBlock);
     }
 
     private Set<Selection.CellRef> selectedCells() {
@@ -305,17 +305,12 @@ public class ScheduleGrid extends ScrollPane {
     }
 
     private static String cellStyle(WeekState state, boolean selected, boolean pinned,
-                                     boolean hasMarker, boolean lastInBlock) {
+                                     boolean lastInBlock) {
         String border;
         String borderWidth;
-        String borderStyle = "solid";
         if (selected) {
             border = "#1976D2";
             borderWidth = "2";
-        } else if (hasMarker) {
-            border = "#7986cb";
-            borderWidth = "1.5";
-            borderStyle = "dotted";
         } else {
             border = "#d0d0d0";
             borderWidth = "0.5";
@@ -327,14 +322,15 @@ public class ScheduleGrid extends ScrollPane {
         return "-fx-background-color: " + colorFor(state, pinned) + ";"
                 + " -fx-border-color: " + border + ";"
                 + " -fx-border-width: " + borderWidth + ";"
-                + " -fx-border-style: " + borderStyle + ";";
+                + " -fx-border-style: solid;";
     }
 
-    private static StackPane buildCell(WeekState state, boolean pinned, boolean hasMarker, boolean lastInBlock) {
+    private static StackPane buildCell(WeekState state, boolean pinned, Set<WeekMarker> markers, boolean lastInBlock) {
         StackPane cell = new StackPane();
         cell.setPrefSize(CELL_WIDTH, CELL_HEIGHT);
         cell.setMaxSize(CELL_WIDTH, CELL_HEIGHT);
-        cell.setStyle(cellStyle(state, false, pinned, hasMarker, lastInBlock));
+        cell.setStyle(cellStyle(state, false, pinned, lastInBlock));
+        addMarkerIndicator(cell, markers);
         return cell;
     }
 
@@ -354,6 +350,31 @@ public class ScheduleGrid extends ScrollPane {
                     .orElse("");
             Tooltip.install(cell, new Tooltip(tooltipText));
         }
+    }
+
+    private static final double MARKER_SIZE = 10;
+
+    private static void addMarkerIndicator(StackPane cell, Set<WeekMarker> markers) {
+        if (markers.contains(WeekMarker.PREFER_ON)) {
+            Polygon arrow = new Polygon(0, MARKER_SIZE, MARKER_SIZE / 2, 0, MARKER_SIZE, MARKER_SIZE);
+            arrow.setFill(Color.web("#424242"));
+            arrow.setMouseTransparent(true);
+            StackPane.setAlignment(arrow, Pos.BOTTOM_LEFT);
+            cell.getChildren().add(arrow);
+        } else if (markers.contains(WeekMarker.PREFER_OFF)) {
+            Polygon arrow = new Polygon(0, 0, MARKER_SIZE / 2, MARKER_SIZE, MARKER_SIZE, 0);
+            arrow.setFill(Color.web("#424242"));
+            arrow.setMouseTransparent(true);
+            StackPane.setAlignment(arrow, Pos.BOTTOM_LEFT);
+            cell.getChildren().add(arrow);
+        }
+    }
+
+    private void updateMarkerIndicator(StackPane cell, Selection.CellRef ref) {
+        cell.getChildren().removeIf(n -> n instanceof Polygon p
+                && StackPane.getAlignment(p) == Pos.BOTTOM_LEFT);
+        Set<WeekMarker> markers = schedule.markersOf(ref.clinician(), ref.week());
+        addMarkerIndicator(cell, markers);
     }
 
     private static Label buildHeader(String text, double width) {
