@@ -139,6 +139,14 @@ public class ScheduleScorer {
             }
         }
 
+        if (schedule.scheduleBlockSizes().size() > 1) {
+            for (Block b : blocks) {
+                if (!schedule.isScheduleBlockStart(b.startWeek())) {
+                    soft -= 20;
+                }
+            }
+        }
+
         return soft;
     }
 }

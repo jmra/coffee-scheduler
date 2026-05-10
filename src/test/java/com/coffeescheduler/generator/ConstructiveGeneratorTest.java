@@ -469,6 +469,60 @@ class ConstructiveGeneratorTest {
                 v.message().contains("min") && v.week() != null && v.week() <= 4));
     }
 
+    // --- Block-alignment tests ---
+
+    @Test
+    void generatorAlignsBlockStartsToScheduleBlockBoundaries() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        Clinician b = clinician("Dr. B", 4, 10);
+        // 12 weeks, schedule blocks of 3: boundaries at 1, 4, 7, 10
+        Schedule s = new Schedule(START, 12, List.of(a, b), new WeeklyDemand(1, 1, 2), 2);
+        s.setScheduleBlockSizes(List.of(3, 3, 3, 3));
+
+        new ConstructiveGenerator().generate(s);
+
+        for (Clinician c : List.of(a, b)) {
+            for (Block block : s.blocksFor(c)) {
+                assertTrue(s.isScheduleBlockStart(block.startWeek()),
+                        c.name() + " block at week " + block.startWeek()
+                                + " is not aligned to a schedule block boundary");
+            }
+        }
+    }
+
+    @Test
+    void generatorIgnoresAlignmentWithSingleScheduleBlock() {
+        Clinician a = clinician("Dr. A", 4, 10);
+        // Single schedule block (default) — no alignment constraint
+        Schedule s = new Schedule(START, 12, List.of(a), new WeeklyDemand(1, 1, 1), 2);
+
+        new ConstructiveGenerator().generate(s);
+
+        // Should still generate blocks; with single block there are no boundaries
+        int onCount = countOn(s, a);
+        assertTrue(onCount >= 4, "should schedule at least contracted min");
+    }
+
+    @Test
+    void generatorSkipsStartWhenRemainingWeeksInsufficientForMinBlock() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        // 7 weeks, blocks of 3: boundaries at 1, 4, 7. Min block length = 2.
+        // Boundary at week 7 can't fit min block length 2 (only 1 week left from week 7 to end of 7)
+        // Wait, 7 weeks = weeks 1..7. Boundary at 7, can fit weeks 7 only (length 1) — not enough.
+        // Actually with minBlockLength=2 and schedule ending at week 7, starting at week 7 only gives 1 week.
+        Schedule s = new Schedule(START, 7, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setScheduleBlockSizes(List.of(3, 3, 1));
+
+        new ConstructiveGenerator().generate(s);
+
+        // No block should start at week 7 (can't fit min block length)
+        List<Block> blocks = s.blocksFor(a);
+        for (Block b : blocks) {
+            assertTrue(b.startWeek() != 7,
+                    "should not start block at week 7 where min block length can't be satisfied");
+        }
+    }
+
     private static Clinician clinician(String name, int contractMin, int contractMax) {
         return new Clinician(name, new ContractedWeeks(contractMin, contractMax),
                 6, 2, new BlockLengthRange(4, 5));

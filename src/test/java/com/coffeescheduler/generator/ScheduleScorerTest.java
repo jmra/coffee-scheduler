@@ -358,6 +358,84 @@ class ScheduleScorerTest {
                 "override should penalize weeks 1-2 for deviating from overridden ideal=0");
     }
 
+    // --- Block-alignment tests ---
+
+    @Test
+    void penalizesMisalignedBlockStart() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Schedule s = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setScheduleBlockSizes(List.of(3, 3, 3));
+        // Block starting at week 2 — not a boundary (boundaries are 1, 4, 7)
+        s.setState(a, 2, WeekState.ON);
+        s.setState(a, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        assertTrue(result.softScore() < 0, "misaligned start should produce negative soft score");
+    }
+
+    @Test
+    void noPenaltyForAlignedBlockStart() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Schedule s = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setScheduleBlockSizes(List.of(3, 3, 3));
+        // Block starting at week 4 — a boundary
+        s.setState(a, 4, WeekState.ON);
+        s.setState(a, 5, WeekState.ON);
+
+        ScheduleScorer.ScoreResult aligned = scorer.score(s);
+
+        // Compare with misaligned
+        Schedule s2 = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s2.setScheduleBlockSizes(List.of(3, 3, 3));
+        s2.setState(a, 5, WeekState.ON);
+        s2.setState(a, 6, WeekState.ON);
+
+        ScheduleScorer.ScoreResult misaligned = scorer.score(s2);
+
+        assertTrue(aligned.softScore() > misaligned.softScore(),
+                "aligned start should score higher than misaligned");
+    }
+
+    @Test
+    void noPenaltyWhenSingleScheduleBlock() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Schedule s = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        // Default: single schedule block = no alignment penalty
+        s.setState(a, 2, WeekState.ON);
+        s.setState(a, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        // No alignment penalty (only demand deviation remains)
+        // The soft score should not include -20 for misalignment
+        Schedule s2 = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s2.setScheduleBlockSizes(List.of(3, 3, 3));
+        s2.setState(a, 2, WeekState.ON);
+        s2.setState(a, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult withBlocks = scorer.score(s2);
+
+        assertTrue(result.softScore() > withBlocks.softScore(),
+                "single schedule block should not get alignment penalty but multi-block should");
+    }
+
+    @Test
+    void misalignedBlockStartPenaltyIsHeavy() {
+        Clinician a = clinician("Dr. A", 2, 10);
+        Schedule s = new Schedule(START, 9, List.of(a), new WeeklyDemand(0, 1, 1), 2);
+        s.setScheduleBlockSizes(List.of(3, 3, 3));
+        s.setState(a, 2, WeekState.ON);
+        s.setState(a, 3, WeekState.ON);
+
+        ScheduleScorer.ScoreResult result = scorer.score(s);
+
+        // Penalty should be at least -20 (the agreed weight)
+        // Other soft factors (demand deviation) contribute small amounts
+        assertTrue(result.softScore() <= -20,
+                "misaligned penalty should be at least -20, got " + result.softScore());
+    }
+
     private static Clinician clinician(String name, int contractMin, int contractMax) {
         return new Clinician(name, new ContractedWeeks(contractMin, contractMax),
                 6, 2, new BlockLengthRange(4, 5));

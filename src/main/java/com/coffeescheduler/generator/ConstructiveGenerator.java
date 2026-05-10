@@ -185,6 +185,9 @@ public class ConstructiveGenerator implements ScheduleGenerator {
         if (remainingCapacity < schedule.minBlockLength()) {
             return Category.FORCED_OFF;
         }
+        if (schedule.scheduleBlockSizes().size() > 1 && !schedule.isScheduleBlockStart(week)) {
+            return Category.FORCED_OFF;
+        }
         if (!canStartBlock(c, week, schedule)) {
             return Category.FORCED_OFF;
         }

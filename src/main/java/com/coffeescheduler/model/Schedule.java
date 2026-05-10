@@ -86,6 +86,16 @@ public class Schedule {
         return scheduleBlockSizes.size();
     }
 
+    public boolean isScheduleBlockStart(int week) {
+        if (scheduleBlockSizes.size() <= 1) return false;
+        int cumulative = 1;
+        for (int size : scheduleBlockSizes) {
+            if (week == cumulative) return true;
+            cumulative += size;
+        }
+        return false;
+    }
+
     public void setStartMonday(LocalDate startMonday) {
         this.startMonday = startMonday;
     }

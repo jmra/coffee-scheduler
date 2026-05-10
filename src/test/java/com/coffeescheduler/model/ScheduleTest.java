@@ -369,6 +369,25 @@ class ScheduleTest {
     }
 
     @Test
+    void isScheduleBlockStartReturnsTrueForBoundaryWeeks() {
+        Schedule s = new Schedule(START, 9, List.of(ADAMS));
+        s.setScheduleBlockSizes(List.of(3, 3, 3));
+        assertTrue(s.isScheduleBlockStart(1));
+        assertTrue(s.isScheduleBlockStart(4));
+        assertTrue(s.isScheduleBlockStart(7));
+        assertFalse(s.isScheduleBlockStart(2));
+        assertFalse(s.isScheduleBlockStart(3));
+        assertFalse(s.isScheduleBlockStart(5));
+    }
+
+    @Test
+    void isScheduleBlockStartReturnsFalseForSingleBlock() {
+        Schedule s = new Schedule(START, 10, List.of(ADAMS));
+        assertFalse(s.isScheduleBlockStart(1));
+        assertFalse(s.isScheduleBlockStart(5));
+    }
+
+    @Test
     void scheduleBlockSizesRoundTripThroughJson() {
         Schedule s = new Schedule(START, 8, List.of(ADAMS));
         s.setScheduleBlockSizes(List.of(2, 3, 3));
