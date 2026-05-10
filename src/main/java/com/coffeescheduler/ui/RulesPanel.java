@@ -15,7 +15,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-import java.util.Set;
+//import java.util.Set;
 
 public class RulesPanel extends TitledPane {
 
