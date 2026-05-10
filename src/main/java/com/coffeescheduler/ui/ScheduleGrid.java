@@ -19,6 +19,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
@@ -32,13 +33,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class ScheduleGrid extends ScrollPane {
+public class ScheduleGrid extends GridPane {
 
     private static final double CELL_HEIGHT = 24;
     private static final double CELL_WIDTH = 90;
     private static final double ROW_HEADER_PAD = 24;
 
     private static final double TRIANGLE_SIZE = 6;
+    private static final double MARKER_SIZE = 10;
+    private static final double SCROLLBAR_WIDTH = 17;
 
     private final Schedule schedule;
     private final ObjectProperty<Selection> selection;
@@ -53,15 +56,15 @@ public class ScheduleGrid extends ScrollPane {
         this.schedule = schedule;
         this.selection = selection;
         this.onScheduleChanged = onScheduleChanged;
+        this.blockBoundaries = buildBlockBoundaries(schedule);
 
         double rowHeaderWidth = computeRowHeaderWidth(schedule);
 
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(8));
-        grid.setHgap(1);
-        grid.setVgap(1);
-        grid.setFocusTraversable(true);
-
+        // Column header grid (clinician names)
+        GridPane colHeaderGrid = new GridPane();
+        colHeaderGrid.setHgap(1);
+        colHeaderGrid.setVgap(1);
+        colHeaderGrid.setPadding(new Insets(0, 8, 0, 0));
         for (int c = 0; c < schedule.roster().size(); c++) {
             Clinician clin = schedule.roster().get(c);
             Label header = buildHeader(clin.name(), CELL_WIDTH);
@@ -69,13 +72,16 @@ public class ScheduleGrid extends ScrollPane {
             header.setOnMouseClicked(e -> {
                 anchor = null;
                 selection.set(new Selection.OfClinician(clin));
-                grid.requestFocus();
+                requestFocus();
             });
-            grid.add(header, c + 1, 0);
+            colHeaderGrid.add(header, c, 0);
         }
 
-        this.blockBoundaries = buildBlockBoundaries(schedule);
-
+        // Row header grid (week labels)
+        GridPane rowHeaderGrid = new GridPane();
+        rowHeaderGrid.setHgap(1);
+        rowHeaderGrid.setVgap(1);
+        rowHeaderGrid.setPadding(new Insets(0, 0, 8, 0));
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int week = w;
             int block = schedule.scheduleBlockOf(w);
@@ -87,10 +93,19 @@ public class ScheduleGrid extends ScrollPane {
             rowHeader.setOnMouseClicked(e -> {
                 anchor = null;
                 selection.set(new Selection.OfWeek(week));
-                grid.requestFocus();
+                requestFocus();
             });
-            grid.add(rowHeader, 0, w);
+            rowHeaderGrid.add(rowHeader, 0, w - 1);
+        }
 
+        // Data grid (cells only)
+        GridPane dataGrid = new GridPane();
+        dataGrid.setHgap(1);
+        dataGrid.setVgap(1);
+        dataGrid.setPadding(new Insets(0, 8, 8, 0));
+        for (int w = 1; w <= schedule.lengthWeeks(); w++) {
+            int week = w;
+            boolean lastInBlock = blockBoundaries.contains(w);
             for (int c = 0; c < schedule.roster().size(); c++) {
                 Clinician clin = schedule.roster().get(c);
                 boolean pinned = schedule.isPinned(clin, w);
@@ -98,20 +113,63 @@ public class ScheduleGrid extends ScrollPane {
                 StackPane cell = buildCell(schedule.stateOf(clin, w), pinned, markers, lastInBlock);
                 cell.setCursor(Cursor.HAND);
                 Selection.CellRef ref = new Selection.CellRef(clin, week);
-                cell.setOnMousePressed(e -> handleCellPressed(e, ref, grid));
+                cell.setOnMousePressed(e -> handleCellPressed(e, ref));
                 cell.setOnDragDetected(e -> { cell.startFullDrag(); e.consume(); });
-                cell.setOnMouseDragEntered(e -> handleCellDragEntered(ref, grid));
+                cell.setOnMouseDragEntered(e -> handleCellDragEntered(ref));
                 cellNodes.put(ref, cell);
-                grid.add(cell, c + 1, w);
+                dataGrid.add(cell, c, w - 1);
             }
         }
+
+        // ScrollPanes for each quadrant
+        ScrollPane dataScroll = new ScrollPane(dataGrid);
+        dataScroll.setPannable(true);
+        dataScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+        dataScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+
+        ScrollPane colHeaderScroll = new ScrollPane(colHeaderGrid);
+        colHeaderScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        colHeaderScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        colHeaderScroll.setFitToHeight(true);
+        colHeaderScroll.setPrefHeight(CELL_HEIGHT + 2);
+        colHeaderScroll.setMinHeight(CELL_HEIGHT + 2);
+        colHeaderScroll.setMaxHeight(CELL_HEIGHT + 2);
+        colHeaderScroll.setPadding(new Insets(0, SCROLLBAR_WIDTH, 0, 0));
+
+        ScrollPane rowHeaderScroll = new ScrollPane(rowHeaderGrid);
+        rowHeaderScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        rowHeaderScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        rowHeaderScroll.setPadding(new Insets(0, 0, SCROLLBAR_WIDTH, 0));
+        rowHeaderScroll.setFitToWidth(true);
+        rowHeaderScroll.setPrefWidth(rowHeaderWidth + 2);
+        rowHeaderScroll.setMinWidth(rowHeaderWidth + 2);
+        rowHeaderScroll.setMaxWidth(rowHeaderWidth + 2);
+
+        // Synchronize scrolling
+        colHeaderScroll.hvalueProperty().bind(dataScroll.hvalueProperty());
+        rowHeaderScroll.vvalueProperty().bind(dataScroll.vvalueProperty());
+
+        // Corner placeholder
+        Label corner = new Label();
+        corner.setPrefSize(rowHeaderWidth + 2, CELL_HEIGHT + 2);
+        corner.setStyle("-fx-background-color: #e0e0e0;");
+
+        // Layout: 2x2 grid
+        add(corner, 0, 0);
+        add(colHeaderScroll, 1, 0);
+        add(rowHeaderScroll, 0, 1);
+        add(dataScroll, 1, 1);
+        GridPane.setHgrow(dataScroll, Priority.ALWAYS);
+        GridPane.setVgrow(dataScroll, Priority.ALWAYS);
+        GridPane.setHgrow(colHeaderScroll, Priority.ALWAYS);
+        GridPane.setVgrow(rowHeaderScroll, Priority.ALWAYS);
 
         addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
             if (e.getButton() != MouseButton.SECONDARY) hideContextMenu();
         });
         setOnKeyPressed(this::handleKey);
+        setFocusTraversable(true);
         selection.addListener((obs, oldSel, newSel) -> updateHighlight(oldSel, newSel));
-        setContent(grid);
     }
 
     private void hideContextMenu() {
@@ -121,14 +179,14 @@ public class ScheduleGrid extends ScrollPane {
         }
     }
 
-    private void handleCellPressed(MouseEvent e, Selection.CellRef ref, GridPane grid) {
+    private void handleCellPressed(MouseEvent e, Selection.CellRef ref) {
         if (e.getButton() == MouseButton.SECONDARY) {
             if (!(selection.get() instanceof Selection.OfCells sel) || !sel.cells().contains(ref)) {
                 anchor = ref;
                 selection.set(new Selection.OfCells(List.of(ref)));
             }
-            showContextMenu(e, grid);
-            grid.requestFocus();
+            showContextMenu(e);
+            requestFocus();
             return;
         }
         if (e.isShiftDown() && anchor != null) {
@@ -137,17 +195,17 @@ public class ScheduleGrid extends ScrollPane {
             anchor = ref;
             selection.set(new Selection.OfCells(List.of(ref)));
         }
-        grid.requestFocus();
+        requestFocus();
     }
 
-    private void handleCellDragEntered(Selection.CellRef ref, GridPane grid) {
+    private void handleCellDragEntered(Selection.CellRef ref) {
         if (anchor != null) {
             selection.set(new Selection.OfCells(buildRange(anchor, ref)));
         }
-        grid.requestFocus();
+        requestFocus();
     }
 
-    private void showContextMenu(MouseEvent e, GridPane grid) {
+    private void showContextMenu(MouseEvent e) {
         if (!(selection.get() instanceof Selection.OfCells sel) || sel.cells().isEmpty()) return;
 
         boolean anyPreferOn = sel.cells().stream()
@@ -188,7 +246,7 @@ public class ScheduleGrid extends ScrollPane {
         hideContextMenu();
         activeContextMenu = new ContextMenu(preferOn, preferOff);
         activeContextMenu.setAutoHide(true);
-        activeContextMenu.show(grid, e.getScreenX(), e.getScreenY());
+        activeContextMenu.show(this, e.getScreenX(), e.getScreenY());
     }
 
     private List<Selection.CellRef> buildRange(Selection.CellRef from, Selection.CellRef to) {
@@ -350,9 +408,8 @@ public class ScheduleGrid extends ScrollPane {
                     .orElse("");
             Tooltip.install(cell, new Tooltip(tooltipText));
         }
+        updateMarkerIndicator(cell, ref);
     }
-
-    private static final double MARKER_SIZE = 10;
 
     private static void addMarkerIndicator(StackPane cell, Set<WeekMarker> markers) {
         if (markers.contains(WeekMarker.PREFER_ON)) {
@@ -407,7 +464,6 @@ public class ScheduleGrid extends ScrollPane {
     private static double computeRowHeaderWidth(Schedule schedule) {
         Text measure = new Text();
         measure.setFont(Font.font("System", 13));
-        int totalBlocks = schedule.scheduleBlockSizes().size();
         double max = 0;
         for (int w = 1; w <= schedule.lengthWeeks(); w++) {
             int block = schedule.scheduleBlockOf(w);

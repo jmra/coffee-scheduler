@@ -213,6 +213,7 @@ public class ConstructiveGenerator implements ScheduleGenerator {
                 .thenComparing(Clinician::name);
     }
 
+    /// The more contracted weeks a clinician needs to be on, the greater the urgency.
     private int urgency(Clinician c, ClinicianTracker t, Schedule schedule, int currentWeek) {
         int remaining = schedule.lengthWeeks() - currentWeek + 1;
         int feasible = estimateFeasibleWeeks(c, t, schedule, currentWeek, remaining);
