@@ -360,6 +360,8 @@ public class MainWindow extends BorderPane {
                 menuItem("Paste", null),
                 new SeparatorMenuItem(),
                 menuItem("Find clinician…", new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)));
+        // Disabled for now, needs to be implemented.
+        edit.setDisable(true);
 
         MenuItem settingsItem = menuItem("Settings…", null);
         settingsItem.setOnAction(e -> editSettings());
@@ -395,8 +397,19 @@ public class MainWindow extends BorderPane {
                 toggleDetails,
                 toggleViolations);
 
+        MenuItem aboutItem = menuItem("About", null);
+        aboutItem.setOnAction(e -> {
+            Alert about = new Alert(Alert.AlertType.INFORMATION);
+            about.setTitle("About Coffee Scheduler");
+            about.setHeaderText("Coffee Scheduler");
+            about.setContentText("Created by Jason Radabaugh, 2026.\n"
+                    + "Implemented with Claude Code, Opus 4.6.\n\n"
+                    + "For questions, comments or feedback, please email jmradabaugh@gmail.com.");
+            about.showAndWait();
+        });
+
         Menu help = new Menu("Help");
-        help.getItems().add(menuItem("About", null));
+        help.getItems().add(aboutItem);
 
         return new MenuBar(file, edit, schedule, view, help);
     }
